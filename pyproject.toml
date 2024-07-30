@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "search-online"
+version = "0.1.0"
+description = ""
+authors = ["Semyon Albeev <semyon.albeev.gmail.com>"]
+readme = "README.md"
+packages = [{include = "search"}]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+fastapi = "^0.111.1"
+uvicorn = "^0.30.3"
+pydantic-settings = "^2.3.4"
+sqlalchemy = "^2.0.31"
+aiomysql = "^0.2.0"
+python-jose = "^3.3.0"
+passlib = "^1.7.4"
+bcrypt = "4.0.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
