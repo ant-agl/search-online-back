@@ -54,7 +54,7 @@ async def fill_profile(
         raise BadRequestApiException(
             "Профиль для данного пользователя уже заполнен"
         )
-    user_id = user.user_id
+    user_id = user.id
     try:
         result = await service.fill_profile(user_id, body)
         return user_id

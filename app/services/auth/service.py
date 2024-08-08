@@ -45,10 +45,10 @@ class Authenticator:
     async def access_token(cls, payload: TokenPayload) -> str:
         exp_time = time.time() + (604800 * 5)  # 900
         to_payload = {
-            "sub": str(payload.user_id),
+            "id": payload.user_id,
             "type": payload.type,
             "full_filled": payload.full_filled,
-            "iss": cls.hash_password(settings.TOKEN_ISS),
+            "iss": settings.TOKEN_ISS,
             'iat': payload.user_id,
             "exp": exp_time
         }
@@ -81,15 +81,12 @@ class Authenticator:
             raise DamagedTokenException()
         if exp_time < time.time():
             raise OverdueTokenException()
-        if cls.verify_password(token_data["iss"], cls.hash_password(token_data["iss"])):
-            raise DamagedTokenException()
         return token_data
 
     @classmethod
     async def get_current_user(cls, token: Annotated[str, Depends(oauth_scheme)]):
         try:
             payload = cls.validate_access_token(token)
-            payload["sub"] = int(payload["sub"])
             return TokenPayload.model_validate(payload)
         except (DamagedTokenException, OverdueTokenException, JWTError) as e:
             raise UnauthorizedApiException(e)
