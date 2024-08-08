@@ -1,3 +1,4 @@
+import os
 from typing import List, Union
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -10,7 +11,12 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: str
     SECRET_KEY: str
     API_TOKEN: str
+    DB_DSN: str
     DEBUG: bool
+    SECRET_KEY: str
+    ALGORITHM: str
+    EXPIRES_IN: int = 5256000
+    TOKEN_ISS: str
 
     model_config = SettingsConfigDict(env_file=".env")
 
@@ -32,6 +38,32 @@ class Settings(BaseSettings):
             "allow_headers": ["*"],
             "allow_credentials": True,
         }
+
+    @property
+    def db_dsn(self):
+        return f"mysql+aiomysql://{self.DB_DSN}?charset=utf8mb4"
+
+    @staticmethod
+    def setup_logging() -> None:
+        """Настройка логирования"""
+        import yaml
+        import logging.config
+        with open("logging.yaml", "r") as f:
+            config = yaml.safe_load(f.read())
+            logging.config.dictConfig(config)
+
+    @staticmethod
+    def setup_architecture():
+        """Настройка архитектуры приложения"""
+        current_dir = os.getcwd()
+        if not os.path.exists(f"{current_dir}/logs"):
+            print("Creating")
+            os.makedirs(f"{current_dir}/logs/debug/")
+            os.makedirs(f"{current_dir}/logs/info/")
+            os.makedirs(f"{current_dir}/logs/error/")
+            os.makedirs(f"{current_dir}/logs/warning/")
+        else:
+            print("Directories exists")
 
 
 settings = Settings()

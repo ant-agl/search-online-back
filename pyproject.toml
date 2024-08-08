@@ -16,6 +16,11 @@ aiomysql = "^0.2.0"
 python-jose = "^3.3.0"
 passlib = "^1.7.4"
 bcrypt = "4.0.1"
+cryptography = "^43.0.0"
+pandas = "^2.2.2"
+bs4 = "^0.0.2"
+lxml = "^5.2.2"
+email-validator = "^2.2.0"
 
 
 [build-system]
