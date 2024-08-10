@@ -1,12 +1,12 @@
 from abc import ABC, abstractmethod
 
 import sqlalchemy
-from sqlalchemy import select
+from sqlalchemy import select, delete, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.auth import TokenPayload
-from app.models.users import UserCreateDTO
-from app.repository.models import Users, UsersCredentials
+from app.models.users import UserCreateDTO, UserFillingDTO, ContactDTO, ComponyDataDTO
+from app.repository.models import Users, UsersCredentials, UsersContacts, UsersCities
 from app.repository.repository import BaseRepository
 from app.repository.users.exceptions import UserAlreadyExistsException, UserNotFoundException
 
@@ -59,8 +59,9 @@ class UsersRepository(BaseRepository):
         if result is None:
             raise UserNotFoundException()
         return TokenPayload(
-            user_id=result.id,
-            tepe=result.type,
+            id=result.id,
+            type=result.type.value
+            if result.type is not None else None,
             full_filled=result.full_filled,
         )
 
@@ -75,7 +76,52 @@ class UsersRepository(BaseRepository):
         if result is None:
             raise UserNotFoundException()
         return TokenPayload(
-            user_id=result.id,
+            id=result.id,
             full_filled=result.full_filled,
-            type=result.type
+            type=result.type.value
+            if result.type is not None else None
         )
+
+    async def drop_error_user(self, user_id: int):
+        statement = delete(
+            Users
+        ).filter_by(
+            id=user_id
+        )
+        await self.session.execute(statement)
+        await self.session.commit()
+
+    async def fill_profile(self, user_id: int, data: UserFillingDTO) -> None:
+        statement = update(
+            Users
+        ).filter_by(
+            id=user_id
+        ).values(
+            type=data.type.value,
+            full_filled=True
+        )
+        city = UsersCities(
+            user_id=user_id,
+            city_id=data.city_id
+        )
+        self.session.add(city)
+        result = await self.session.execute(statement)
+        await self.session.commit()
+
+    async def add_contacts(self, user_id: int, contacts: list[ContactDTO]):
+        contacts = [
+            UsersContacts(
+                user_id=user_id,
+                type=contact.type.value,
+                value=contact.value,
+                is_hidden=contact.hidden
+            )
+            for contact in contacts
+        ]
+
+        self.session.add_all(contacts)
+        await self.session.commit()
+
+    async def add_compony_data(self, user_id: int, company_data: ComponyDataDTO):
+        pass
+

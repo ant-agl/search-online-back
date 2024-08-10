@@ -1,5 +1,6 @@
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
+from redis.asyncio import Redis, ConnectionPool
 
 from app.repository.common.repository import CommonRepository
 from app.repository.session import get_session
@@ -36,3 +37,10 @@ async def get_auth_service(session: AsyncSession = Depends(get_session)):
 async def get_user_service(session: AsyncSession = Depends(get_session)):
     user_service = UserService(UsersRepository(session))
     return user_service
+
+
+async def get_redis():
+    pool = ConnectionPool.from_url('redis://localhost:6379/0')
+    client = Redis.from_pool(pool)
+    yield client
+    await client.close()

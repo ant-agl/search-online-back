@@ -10,10 +10,8 @@ class Settings(BaseSettings):
     APP_DESCRIPTION: str
     ALLOWED_ORIGINS: str
     SECRET_KEY: str
-    API_TOKEN: str
     DB_DSN: str
     DEBUG: bool
-    SECRET_KEY: str
     ALGORITHM: str
     EXPIRES_IN: int = 5256000
     TOKEN_ISS: str

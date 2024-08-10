@@ -4,6 +4,7 @@ import datetime
 import hashlib
 import hmac
 import json
+import secrets
 import time
 from typing import Annotated
 
@@ -11,6 +12,7 @@ from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from passlib.context import CryptContext
+from redis.asyncio import Redis
 
 from app.api.exceptions import UnauthorizedApiException, NotFoundApiException
 from app.models.auth import TokenPayload
@@ -45,11 +47,11 @@ class Authenticator:
     async def access_token(cls, payload: TokenPayload) -> str:
         exp_time = time.time() + (604800 * 5)  # 900
         to_payload = {
-            "id": payload.user_id,
+            "id": payload.id,
             "type": payload.type,
             "full_filled": payload.full_filled,
             "iss": settings.TOKEN_ISS,
-            'iat': payload.user_id,
+            'iat': payload.id,
             "exp": exp_time
         }
         return jwt.encode(
@@ -57,19 +59,14 @@ class Authenticator:
         )
 
     @classmethod
-    async def refresh_token(cls, user_id: int) -> str:
-        exp_time = time.time() + 604800
-        to_payload = {
-            "uid": user_id,
-            "exp": exp_time
-        }
-        json_data = json.dumps(to_payload).encode()
-        encoded = base64.urlsafe_b64encode(json_data).decode()
-        signature = hmac.new(
-            cls.__secret_key.encode(),
-            encoded.encode(), hashlib.sha256
-        ).hexdigest()
-        return f"{encoded}.{signature}"
+    async def refresh_token(cls, user_id: int, redis: Redis) -> str:
+        token = f"{secrets.token_hex(64)}.{user_id}"
+        result = await redis.set(
+            f"user_{user_id}_refresh", token,
+            ex=datetime.timedelta(days=7),
+        )
+        if result:
+            return token
 
     @classmethod
     def validate_access_token(cls, token: str) -> dict:
@@ -89,15 +86,15 @@ class Authenticator:
             payload = cls.validate_access_token(token)
             return TokenPayload.model_validate(payload)
         except (DamagedTokenException, OverdueTokenException, JWTError) as e:
-            raise UnauthorizedApiException(e)
+            raise UnauthorizedApiException(str(e))
 
-    async def authenticate_user(self, login: str, password: str):
+    async def authenticate_user(self, login: str, password: str, redis: Redis):
         user_from_db = await self.__user_service.get_user_password(login)
         if self.verify_password(password, user_from_db):
             user_to_token = await self.__user_service.get_user_by_email(login)
             access_token, refresh_token = await asyncio.gather(
                 self.access_token(user_to_token),
-                self.refresh_token(user_to_token.user_id)
+                self.refresh_token(user_to_token.id, redis)
             )
             return {
                 "access_token": access_token,
@@ -105,30 +102,23 @@ class Authenticator:
             }
         raise BadCredentialsException()
 
-    async def get_refresh_token(self, token: str):
-        encoded, signature = token.rsplit(".", 1)
-        expected_signature = hmac.new(
-            self.__secret_key.encode(), encoded.encode(), hashlib.sha256
-        ).hexdigest()
-        if not hmac.compare_digest(expected_signature, signature):
-            raise DamagedTokenException()
-        data = base64.urlsafe_b64decode(
-            encoded.encode().decode()
+    async def get_refresh_token(self, token: str, redis: Redis):
+        token_value, user_id = token.rsplit(".", 1)
+        token_in_redis = await redis.get(
+            f"user_{user_id}_refresh"
         )
-        data = json.loads(data)
-
-        if data.get("exp") < time.time():
+        if token_in_redis is None:
             raise OverdueTokenException()
 
-        if data.get("uid") is None:
+        if token_in_redis.decode() != token:
             raise DamagedTokenException()
 
         user_to_token = await self.__user_service.get_user_token_data_by_id(
-            data.get("uid")
+            user_id
         )
         access_token, refresh_token = await asyncio.gather(
             self.access_token(user_to_token),
-            self.refresh_token(user_to_token.user_id)
+            self.refresh_token(user_to_token.id, redis)
         )
         return {
             "access_token": access_token,

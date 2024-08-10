@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, field_validator, model_validator
 
 from app.api.exceptions import UnprocessableApiException
 from app.utils.types import TypesOfUser, ContactType, LegalFormat
@@ -14,7 +14,7 @@ class RegistryUserRequest(BaseModel):
 class Contacts(BaseModel):
     type: ContactType
     value: str
-    hidden: bool
+    hidden: bool = False
 
 
 class CompanyData(BaseModel):
@@ -31,14 +31,15 @@ class FullRegistryUserRequest(BaseModel):
     main_category: int | None = None
     company_data: CompanyData | None = None
 
-    @field_validator("type")
-    @classmethod
-    def validate_field_type(cls, v):
-        if v == TypesOfUser.seller.value:
-            if cls.main_category is None or cls.company_data is None:
+    @model_validator(mode="after")
+    def validate_field_type(self):
+        if self.type == TypesOfUser.seller:
+            if self.main_category is None or self.company_data is None:
                 raise UnprocessableApiException(
                     "Не заполнены обязательные поля для продавца"
                 )
+        return self
+    
 
 
 

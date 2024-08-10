@@ -85,7 +85,7 @@ class Users(Base):
     first_name: Mapped[str] = mapped_column(String(255))
     last_name: Mapped[str] = mapped_column(String(255))
     middle_name: Mapped[str] = mapped_column(String(255), nullable=True)
-    type: Mapped[TypesOfUser] = mapped_column(nullable=False)
+    type: Mapped[TypesOfUser] = mapped_column(nullable=True)
     full_filled: Mapped[bool] = mapped_column(default=False)
     is_blocked: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[CREATED_AT]

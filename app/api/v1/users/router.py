@@ -1,19 +1,25 @@
+import logging
 from typing import Union
 
 from fastapi import APIRouter, Depends
+from fastapi.responses import JSONResponse
+from redis.asyncio import Redis
 
-from app.api.dependencies import get_auth_service, AuthTools, get_user_service
-from app.api.exceptions import BaseApiException, BadRequestApiException, ErrorResponse, InternalServerError
+from app.api.dependencies import get_auth_service, AuthTools, get_user_service, get_redis
+from app.api.exceptions import BaseApiException, BadRequestApiException, ErrorResponse, InternalServerError, \
+    NotFoundApiException
 from app.api.v1.requests.responses import RegistryUserResponse
 from app.api.v1.users.requests import RegistryUserRequest, FullRegistryUserRequest
 from app.models.auth import TokenPayload
-from app.repository.users.exceptions import UserAlreadyExistsException
+from app.repository.users.exceptions import UserAlreadyExistsException, UserNotFoundException
 from app.services.auth.service import Authenticator
 from app.services.users.service import UserService
 
 router = APIRouter(
     prefix="/users",
 )
+
+logger = logging.getLogger("UsersRouter")
 
 
 @router.post(
@@ -22,8 +28,10 @@ router = APIRouter(
 )
 async def create_customer(
         body: RegistryUserRequest,
-        service: AuthTools = Depends(get_auth_service)
+        service: AuthTools = Depends(get_auth_service),
+        redis: Redis = Depends(get_redis)
 ):
+    user_id: int = 0
     try:
         user_password = body.password
         body.password = service.auth_service.hash_password(
@@ -31,7 +39,7 @@ async def create_customer(
         )
         user_id = await service.user_service.registry(body)
         tokens = await service.auth_service.authenticate_user(
-            body.email, user_password
+            body.email, user_password, redis
         )
         return RegistryUserResponse(
             user_id=user_id,
@@ -41,6 +49,8 @@ async def create_customer(
     except UserAlreadyExistsException as e:
         raise BadRequestApiException(str(e))
     except Exception as e:
+        logger.exception(e)
+        await service.user_service.drop_error(user_id)
         raise InternalServerError(str(e))
 
 
@@ -57,7 +67,13 @@ async def fill_profile(
     user_id = user.id
     try:
         result = await service.fill_profile(user_id, body)
-        return user_id
+        return JSONResponse(
+            content={
+                "success": result
+            }, status_code=201
+        )
+    except UserNotFoundException as e:
+        raise NotFoundApiException(str(e))
     except Exception as e:
         raise InternalServerError(str(e))
 
