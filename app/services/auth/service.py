@@ -45,10 +45,11 @@ class Authenticator:
 
     @classmethod
     async def access_token(cls, payload: TokenPayload) -> str:
-        exp_time = time.time() + (604800 * 5)  # 900
+        exp_time = time.time() + (604800 * 5)
         to_payload = {
             "id": payload.id,
             "type": payload.type,
+            "is_blocked": payload.is_blocked,
             "full_filled": payload.full_filled,
             "iss": settings.TOKEN_ISS,
             'iat': payload.id,

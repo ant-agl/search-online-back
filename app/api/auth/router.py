@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends
 from fastapi.security import OAuth2PasswordRequestForm
 from redis.asyncio import Redis
@@ -12,6 +14,7 @@ from app.services.auth.exceptions import BadCredentialsException, OverdueTokenEx
 router = APIRouter(
     prefix="/auth"
 )
+logger = logging.getLogger("AuthRouter")
 
 
 @router.post("/token", summary="Авторизация")
@@ -33,6 +36,7 @@ async def login(
     except BadCredentialsException as e:
         raise BadRequestApiException(str(e))
     except Exception as e:
+        logger.exception(e)
         raise InternalServerError(str(e))
 
 
@@ -53,6 +57,7 @@ async def refresh(
     except (OverdueTokenException, DamagedTokenException) as e:
         raise ForbiddenApiException(str(e))
     except Exception as e:
+        logger.exception(e)
         raise InternalServerError(str(e))
 
 

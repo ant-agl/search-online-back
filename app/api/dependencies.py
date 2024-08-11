@@ -6,6 +6,7 @@ from app.repository.common.repository import CommonRepository
 from app.repository.session import get_session
 from app.repository.users.repository import UsersRepository
 from app.services.auth.service import Authenticator
+from app.services.cloud_service import CloudService
 from app.services.common.service import CommonService
 from app.services.users.service import UserService
 
@@ -37,6 +38,10 @@ async def get_auth_service(session: AsyncSession = Depends(get_session)):
 async def get_user_service(session: AsyncSession = Depends(get_session)):
     user_service = UserService(UsersRepository(session))
     return user_service
+
+
+async def get_cloud_service():
+    return CloudService()
 
 
 async def get_redis():

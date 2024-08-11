@@ -14,7 +14,7 @@ class RegistryUserRequest(BaseModel):
 class Contacts(BaseModel):
     type: ContactType
     value: str
-    hidden: bool = False
+    is_hidden: bool = False
 
 
 class CompanyData(BaseModel):
@@ -41,5 +41,13 @@ class FullRegistryUserRequest(BaseModel):
         return self
     
 
+class UpdateUserRequest(BaseModel):
+    first_name: str | None = None
+    last_name: str | None = None
+    middle_name: str | None = None
+    city_id: int | None = None
 
 
+class UpdateContactRequest(BaseModel):
+    new_value: str | None = None
+    is_hidden: bool | None = None

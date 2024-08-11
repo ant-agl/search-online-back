@@ -15,6 +15,12 @@ class Settings(BaseSettings):
     ALGORITHM: str
     EXPIRES_IN: int = 5256000
     TOKEN_ISS: str
+    S3_KEY_ID: str | None = None  # ID ключа от S3
+    S3_ACCESS_KEY: str | None = None  # Ключ доступа от S3
+    S3_REGION_NAME: str | None = None  # Регион S3
+    S3_BUCKET: str | None = None  # Название бакета
+    S3_URL: str | None = None  # URL хранилища
+    S3_PUBLIC_URL: str | None = "https://test.s3.ru/"  # URL публичного доступа
 
     model_config = SettingsConfigDict(env_file=".env")
 

@@ -96,7 +96,8 @@ class Users(Base):
     )
 
     avatar: Mapped["UserAvatar"] = relationship(
-        back_populates="user"
+        back_populates="user",
+        order_by="UserAvatar.id.desc()",
     )
 
     credentials: Mapped["UsersCredentials"] = relationship(
@@ -152,6 +153,7 @@ class UsersCities(Base):
 
     city: Mapped[Cities] = relationship(
         back_populates="users",
+        lazy="joined"
     )
 
     user: Mapped[Users] = relationship(

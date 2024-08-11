@@ -3,7 +3,7 @@ import enum
 
 class TypesOfUser(enum.Enum):
     seller = "seller"
-    customer = "user"
+    user = "user"
 
 
 class ContactType(enum.Enum):
