@@ -1,0 +1,172 @@
+id,type,value,on_moderating,depend_on
+1,service,Ремонт авто,false,
+2,service,"Стройка, ремонт",false,
+3,service,Изготовление мебели,false,
+4,service,Ландшафт,false,
+5,service,Грузоперевозки,false,
+6,service,Ремонт техники,false,
+7,service,IT,false,
+8,service,Аренда,false,
+9,service,Клининг,false,
+10,service,Ателье,false,
+11,service,Медицина,false,
+12,service,Красота,false,
+13,service,Репетиторы,false,
+14,service,Животные,false,
+15,service,Разное,false,
+16,service,Техобслуживание,false,1
+17,service,Диагностика,false,1
+18,service,Кузовной ремонт,false,1
+19,service,Ремонт КПП,false,1
+20,service,Ремонт двигателя,false,1
+21,service,Ремонт подвески,false,1
+22,service,"Химчистка, детейлинг",false,1
+23,service,Под ключ,false,2
+24,service,Бетонные работы,false,2
+25,service,Кровля,false,2
+26,service,Отделочные работы,false,2
+27,service,Монтаж электрики,false,2
+28,service,Отопление,false,2
+29,service,Разнорабочий,false,2
+30,service,Сантехник,false,2
+31,service,"Заборы, ворота",false,2
+32,service,"Окна, двери",false,2
+33,service,"Скважина, колодец",false,2
+34,service,"Септик, выгребная яма",false,2
+35,service,"Тротуарная плитка, дорожки",false,2
+36,service,Техника,false,2
+37,service,Кухни,false,3
+38,service,Шкафы купе,false,3
+39,service,Выравнивание участка,false,4
+40,service,Газон,false,4
+41,service,Садовник,false,4
+42,service,Вспашка земли,false,4
+43,service,"Очистка участка, корчевание",false,4
+44,service,"Переезд транспорт, грузчики",false,5
+45,service,Перевозка стройматериалов,false,5
+46,service,Вывоз мусора,false,5
+47,service,Эвакуатор,false,5
+48,service,Телевизоры,false,6
+49,service,Стиральные машины,false,6
+50,service,Посудомоечные машины,false,6
+51,service,Сушильные машины,false,6
+52,service,Компьютеры,false,6
+53,service,"Телефоны, планшеты",false,6
+54,service,Ноутбуки,false,6
+55,service,Квартиры,false,8
+56,service,Дома,false,8
+57,service,Дачи,false,8
+58,service,"Баня, бассейн",false,8
+59,service,"Гаражи, паркинги",false,8
+60,service,Авто,false,8
+61,service,"Инструменты, оборудование",false,8
+62,service,"Уборка квартиры, дома",false,9
+63,service,Уборка после ремонта,false,9
+64,service,"Уборка участка, территории",false,9
+65,service,Стирка ковров,false,9
+66,service,Химчистка,false,9
+67,service,Чистка диванов,false,9
+68,service,Ремонт одежды,false,10
+69,service,Пошив штор,false,10
+70,service,Анализы,false,11
+71,service,Обследования,false,11
+72,service,Приём врача,false,11
+73,service,Маникюр,false,12
+74,service,Стрижка,false,12
+75,service,Педикюр,false,12
+76,service,Ресницы,false,12
+77,service,Покраска,false,12
+78,service,Языки,false,13
+79,service,Математика,false,13
+80,service,Физика,false,13
+81,service,Химия,false,13
+82,service,Стрижка,false,14
+83,service,Передержка,false,14
+84,service,Ветеринар,false,14
+85,service,Дрессировка,false,14
+86,service,Выгул,false,14
+87,service,Чистка аквариума,false,14
+88,service,Грузчики,false,15
+89,service,Изготовление игрушек,false,15
+90,service,курсы кройки и шитья,false,15
+91,service,Изготовление украшений,false,15
+92,service,"Сиделка, уход за престарелыми",false,15
+93,service,Фундамент,false,24
+94,service,Перекрытия,false,24
+95,service,Стяжка пола,false,24
+96,service,Сухая стяжка,false,24
+97,service,Штукатурка,false,26
+98,service,Шпаклёвка,false,26
+99,service,Обои,false,26
+100,service,"Ламинат, линолеум, паркет",false,26
+101,service,"Потолки (натяжные, гипсокартон)",false,26
+102,service,Гипсокартон,false,26
+103,service,Плиточник,false,26
+104,service,Трактор,false,36
+105,service,Экскаватор,false,36
+106,service,Бетономешалка,false,61
+107,service,Строительные леса,false,61
+108,service,Трамбовка,false,61
+109,service,Отбойный молоток,false,61
+110,service,Перфоратор,false,61
+111,service,Строительный пылесос,false,61
+112,item,Авто-мототехника,false,
+113,item,Строительство,false,
+114,item,Инструменты,false,
+115,item,Мебель,false,
+116,item,Оборудование,false,
+117,item,Электроника,false,
+118,item,Легковое авто,false,112
+119,item,Грузовое авто,false,112
+120,item,Квадроциклы,false,112
+121,item,Спецтехника,false,112
+122,item,Снегоходы,false,112
+123,item,"Скутера, мопеды",false,112
+124,item,Мотоциклы,false,112
+125,item,Автобусы,false,112
+126,item,Авто дома,false,112
+127,item,Запчасти,false,112
+128,item,Шины,false,112
+129,item,Диски,false,112
+130,item,Колёса в сборе,false,112
+131,item,Аксессуары,false,112
+132,item,Доп оборудование,false,112
+133,item,Прицепы,false,112
+134,item,Для стен,false,113
+135,item,"Окна, двери",false,113
+136,item,Для отопления,false,113
+137,item,Водоснабжение,false,113
+138,item,Кондиционеры,false,113
+139,item,Профлист,false,113
+140,item,Кровля,false,113
+141,item,Забор,false,113
+142,item,Цемент,false,113
+143,item,Сыпучие материалы,false,113
+144,item,Пиломатериал,false,113
+145,item,Листовой материал,false,113
+146,item,"Утеплитель, шумоизоляция",false,113
+147,item,Пенопласт,false,113
+148,item,Арматура,false,113
+149,item,Труба,false,113
+150,item,Диваны,false,115
+151,item,Кровати,false,115
+152,item,"Шкафы, комоды",false,115
+153,item,Детская мебель,false,115
+154,item,Столы,false,115
+155,item,Стулья,false,115
+156,item,Кресла,false,115
+157,item,Стеллажи,false,115
+158,item,Кухни,false,115
+159,item,Торговое,false,116
+160,item,Для СТО,false,116
+161,item,Станки,false,116
+162,item,Для сферы питания,false,116
+163,item,Телевизоры,false,117
+164,item,Компьютеры,false,117
+165,item,Ноутбуки,false,117
+166,item,Телефоны,false,117
+167,item,Планшеты,false,117
+168,item,Игровые приставки,false,117
+169,item,Принтеры,false,117
+170,item,"Акустика, колонки",false,117
+171,item,Техника для кухни,false,117

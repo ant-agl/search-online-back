@@ -158,7 +158,9 @@ class UserService(BaseService):
         ])
 
     async def get_user_profile(self, user_id: int):
-        user: UserDTO | None = await self._repository.get(user_id=user_id)
+        user: UserDTO | None = await self._repository.get(
+            user_id=user_id
+        )
         if user is None:
             raise UserNotFoundException()
         user_info = UserInfo(

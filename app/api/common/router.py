@@ -1,13 +1,18 @@
 import logging
+from typing import Union
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import JSONResponse
 
 from app.api.common.requests import CreateCategory
 from app.api.common.responses import GetCities, GetCategoryTree
 from app.api.dependencies import get_common_service
+from app.api.exceptions import InternalServerError, ErrorResponse, ForbiddenApiException, BadRequestApiException
 from app.models.auth import TokenPayload
 from app.services.auth.service import Authenticator
+from app.services.common.exceptions import ExceedingMaxDepth
 from app.services.common.service import CommonService
+from app.utils.types import ItemType
 
 router = APIRouter(
     prefix="/common",
@@ -43,22 +48,59 @@ async def get_cities(
 
 @router.get(
     "/category/tree", status_code=200,
-    response_model=GetCategoryTree, summary="Дерево категорий"
+    response_model=Union[GetCategoryTree, ErrorResponse],
+    summary="Дерево категорий"
 )
 async def get_category_tree(
+        t: ItemType,
         service: CommonService = Depends(get_common_service),
 ) -> GetCategoryTree:
-    ...
-    # TODO: После получения дерева категорий
+    try:
+        return GetCategoryTree(
+            result=await service.get_category_tree(t, on_moderating=False)
+        )
+    except Exception as e:
+        logger.exception(e)
+        raise InternalServerError(str(e))
 
 
 @router.post(
-    "/category", status_code=200,
+    "/category", status_code=201,
     summary="Создать категорию"
 )
 async def create_category(
         body: CreateCategory,
-        user: TokenPayload = Depends(Authenticator.get_current_user),
+        _: TokenPayload = Depends(Authenticator.get_current_user),
         service: CommonService = Depends(get_common_service),
 ):
-    ...
+    try:
+        result = await service.create_new_category(body)
+        return JSONResponse(
+            content={
+                "success": True,
+                "data": result
+            }, status_code=201
+        )
+    except ExceedingMaxDepth as e:
+        raise BadRequestApiException(str(e))
+    except Exception as e:
+        logger.exception(e)
+        raise InternalServerError(str(e))
+
+
+@router.get("/category/{category_id}/status", status_code=200)
+async def get_category_status(
+        category_id: int,
+        _: TokenPayload = Depends(Authenticator.get_current_user),
+        service: CommonService = Depends(get_common_service),
+):
+    try:
+        result = await service.get_new_category_status(category_id)
+        return JSONResponse(
+            content={
+                "status": result
+            }, status_code=200
+        )
+    except Exception as e:
+        logger.exception(e)
+        raise InternalServerError(str(e))

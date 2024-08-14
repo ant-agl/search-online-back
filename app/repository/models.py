@@ -244,9 +244,11 @@ class Categories(Base):
     __tablename__ = 'categories'
 
     id: Mapped[INT_PK]
+    type: Mapped[ItemType]
     value: Mapped[str] = mapped_column(String(255))
     on_moderating: Mapped[bool] = mapped_column(default=True)
-    depend_on: Mapped[int] = mapped_column()
+    depend_on: Mapped[int] = mapped_column(nullable=True)
+    disabled: Mapped[bool] = mapped_column(default=False)
 
     items: Mapped[list["ItemsCategory"]] = relationship(
         back_populates="category"

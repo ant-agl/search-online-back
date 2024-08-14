@@ -1,5 +1,4 @@
-import secrets
 
-secret = secrets.token_hex(64)
 
-print(secret)
+for i in range(100, 250):
+    print(f"{i},service,")

@@ -12,3 +12,10 @@ class CityNotActiveException(Exception):
         super().__init__(
             f"В городе {city_name} Найти.Онлайн еще не работает"
         )
+
+
+class ExceedingMaxDepth(Exception):
+    def __init__(self):
+        super().__init__(
+            "Выбранная родительская категория является максимальной подкатегорией"
+        )

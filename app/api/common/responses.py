@@ -10,6 +10,9 @@ class GetCities(BaseModel):
 class Category(BaseModel):
     id: int
     name: str
+    parent_id: int | None = None
+    on_moderating: bool = False
+    disabled: bool = False
     children: list["Category"] | None = None
 
 
