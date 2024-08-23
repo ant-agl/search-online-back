@@ -48,7 +48,7 @@ class Authenticator:
         exp_time = time.time() + (604800 * 5)
         to_payload = {
             "id": payload.id,
-            "type": payload.type,
+            "types": payload.types,
             "is_blocked": payload.is_blocked,
             "full_filled": payload.full_filled,
             "iss": settings.TOKEN_ISS,

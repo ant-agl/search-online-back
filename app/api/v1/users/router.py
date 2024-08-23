@@ -11,7 +11,7 @@ from app.api.exceptions import BaseApiException, BadRequestApiException, ErrorRe
     NotFoundApiException
 from app.api.v1.requests.responses import RegistryUserResponse
 from app.api.v1.users.requests import RegistryUserRequest, FullRegistryUserRequest, UpdateUserRequest, Contacts, \
-    UpdateContactRequest
+    UpdateContactRequest, CompanyData
 from app.api.v1.users.responses import UserContacts
 from app.models.auth import TokenPayload
 from app.repository.users.exceptions import UserAlreadyExistsException, UserNotFoundException
@@ -253,3 +253,15 @@ async def update_contact(
     except Exception as e:
         logger.exception(e)
         raise InternalServerError(str(e))
+
+
+@router.post(
+    "/become/seller", summary="Стать продавцом",
+    status_code=201, deprecated=True
+)
+async def become_seller(
+        body: CompanyData,
+        user: TokenPayload = Depends(Authenticator.get_current_user),
+        service: UserService = Depends(get_user_service)
+):
+    ...

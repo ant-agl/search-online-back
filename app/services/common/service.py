@@ -4,7 +4,8 @@ from app.api.common.requests import CreateCategory
 from app.api.common.responses import Category
 from app.models.common import CitiesDTO
 from app.repository.common.repository import CommonRepository
-from app.services.common.exceptions import CityNotFoundException, CityNotActiveException, ExceedingMaxDepth
+from app.services.common.exceptions import CityNotFoundException, CityNotActiveException, ExceedingMaxDepth, \
+    CategoryNotFoundException
 from app.services.service import BaseService
 from app.utils.types import ItemType
 
@@ -76,7 +77,7 @@ class CommonService(BaseService):
         }
 
     async def get_new_category_status(self, category_id: int):
-        category = await self._repository.get_category_by_status(
+        category = await self._repository.get_category_status_by_id(
             category_id
         )
         if category is None:
@@ -85,3 +86,11 @@ class CommonService(BaseService):
             return "moderating"
         elif category is False:
             return "accepted"
+
+    async def check_category(self, category_id: int):
+        result = await self._repository.get_category_by_id(category_id)
+        if result is None:
+            raise CategoryNotFoundException(category_id)
+        return result
+
+

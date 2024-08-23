@@ -3,11 +3,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from redis.asyncio import Redis, ConnectionPool
 
 from app.repository.common.repository import CommonRepository
+from app.repository.items.repository import ItemsRepository
+from app.repository.offers.repository import OffersRepository
 from app.repository.session import get_session
 from app.repository.users.repository import UsersRepository
 from app.services.auth.service import Authenticator
 from app.services.cloud_service import CloudService
 from app.services.common.service import CommonService
+from app.services.items.service import ItemsService
+from app.services.offers.service import OffersService
 from app.services.users.service import UserService
 
 
@@ -49,3 +53,15 @@ async def get_redis():
     client = Redis.from_pool(pool)
     yield client
     await client.close()
+
+
+async def get_items_service(session: AsyncSession = Depends(get_session)):
+    return ItemsService(
+        ItemsRepository(session)
+    )
+
+
+async def get_offers_service(session: AsyncSession = Depends(get_session)):
+    return OffersService(
+        OffersRepository(session)
+    )

@@ -39,12 +39,19 @@ class UserDTO(BaseModel):
     first_name: str
     last_name: str
     middle_name: str | None = None
-    type: TypesOfUser
+    types: list[str]
     city: str
     city_id: int
-    avatar: str
+    avatar: str | None = None
     contacts: list[ContactsDTO]
     full_filled: bool
     is_blocked: bool
     legal_info: None
     updated_at: datetime.datetime
+
+
+class UserShortDTO(BaseModel):
+    id: int
+    full_name: str
+    city: str
+    avatar: str | None = None

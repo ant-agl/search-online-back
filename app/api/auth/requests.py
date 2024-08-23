@@ -3,9 +3,9 @@ from pydantic import BaseModel, EmailStr
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr = Form()
-    password: str = Form()
+    email: EmailStr = Form(media_type="application/x-www-form-urlencoded")
+    password: str = Form(media_type="application/x-www-form-urlencoded")
 
 
 class RefreshTokenRequest(BaseModel):
-    refresh_token: str = Form()
+    refresh_token: str = Form(media_type="application/x-www-form-urlencoded")

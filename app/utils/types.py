@@ -1,4 +1,5 @@
 import enum
+from typing import Final
 
 
 class TypesOfUser(enum.Enum):
@@ -28,5 +29,26 @@ class ItemType(enum.Enum):
 class OrdersStatus(enum.Enum):
     PENDING = "PENDING"
     APPROVED = "APPROVED"
+    PROCESSING = "PROCESSING"
     REJECTED = "REJECTED"
     COMPLETED = "COMPLETED"
+
+
+class ItemPublishStatus(enum.Enum):
+    pending = "pending"
+    approved = "approved"
+    rejected = "rejected"
+
+
+class OffersTypes(enum.Enum):
+    from_me = "from_me"
+    to_me = "to_me"
+
+
+STATUS_MAP: Final[dict[str, str]] = {
+    "PENDING": "В обработке",
+    "APPROVED": "Подтвержден",
+    "PROCESSING": "Выполняется",
+    "REJECTED": "Отклонен исполнителем",
+    "COMPLETED": "Завершен",
+}

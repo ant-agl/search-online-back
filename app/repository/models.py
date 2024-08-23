@@ -3,11 +3,11 @@ import enum
 import uuid
 from typing import Annotated
 
-from sqlalchemy import BigInteger, TIMESTAMP, ForeignKey, String
+from sqlalchemy import BigInteger, TIMESTAMP, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, mapped_column, Mapped, relationship
 
 from app.repository.session import engine
-from app.utils.types import TypesOfUser, ContactType, LegalFormat, ItemType, OrdersStatus
+from app.utils.types import TypesOfUser, ContactType, LegalFormat, ItemType, OrdersStatus, ItemPublishStatus
 
 INT_PK = Annotated[
     int, mapped_column(BigInteger, autoincrement=True, primary_key=True)
@@ -77,6 +77,10 @@ class Cities(Base):
         back_populates="cities"
     )
 
+    items: Mapped[list["ItemsLocations"]] = relationship(
+        back_populates="city"
+    )
+
 
 class Users(Base):
     __tablename__ = "users"
@@ -85,19 +89,25 @@ class Users(Base):
     first_name: Mapped[str] = mapped_column(String(255))
     last_name: Mapped[str] = mapped_column(String(255))
     middle_name: Mapped[str] = mapped_column(String(255), nullable=True)
-    type: Mapped[TypesOfUser] = mapped_column(nullable=True)
     full_filled: Mapped[bool] = mapped_column(default=False)
     is_blocked: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[CREATED_AT]
     updated_at: Mapped[UPDATED_AT]
 
+    type: Mapped[list["UsersType"]] = relationship(
+        back_populates="user",
+        lazy="joined",
+    )
+
     user_city: Mapped["UsersCities"] = relationship(
-        back_populates="user"
+        back_populates="user",
+        lazy="joined"
     )
 
     avatar: Mapped["UserAvatar"] = relationship(
         back_populates="user",
         order_by="UserAvatar.id.desc()",
+        lazy="joined"
     )
 
     credentials: Mapped["UsersCredentials"] = relationship(
@@ -105,7 +115,8 @@ class Users(Base):
     )
 
     contacts: Mapped[list["UsersContacts"]] = relationship(
-        back_populates="user"
+        back_populates="user",
+        lazy="dynamic"
     )
 
     legal_info: Mapped["LegalInfo"] = relationship(
@@ -140,9 +151,57 @@ class Users(Base):
         foreign_keys="OffersTreads.to_user_id",
     )
 
+    reviews: Mapped[list["SellersReviews"]] = relationship(
+        back_populates="seller",
+        lazy="joined",
+        foreign_keys="SellersReviews.seller_id",
+    )
+
+    my_reviews: Mapped[list["SellersReviews"]] = relationship(
+        back_populates="from_user",
+        foreign_keys="SellersReviews.from_user_id",
+    )
+
+    my_items_reviews: Mapped[list["ItemsReviews"]] = relationship(
+        back_populates="from_user"
+    )
+
     @property
     def city(self):
         return self.user_city.city.name
+
+    @property
+    def full_name(self):
+        return self.first_name + " " + self.last_name
+
+    @property
+    def rating(self):
+        if len(self.reviews) == 0:
+            return 0
+        return sum([rw.stars for rw in self.reviews]) // len(self.reviews)
+
+    @property
+    def types(self):
+        return [
+            tp.type.value
+            for tp in self.type
+        ]
+
+
+class UsersType(Base):
+    __tablename__ = "users_type"
+
+    id: Mapped[INT_PK]
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    type: Mapped[TypesOfUser]
+
+    user: Mapped[Users] = relationship(
+        back_populates="type",
+    )
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "type", name="users_type_user"),
+    )
 
 
 class UsersCities(Base):
@@ -269,6 +328,7 @@ class Items(Base):
     comment: Mapped[str] = mapped_column(String(255), nullable=True)
     format: Mapped[ItemType]
     is_delivered: Mapped[bool]
+    status: Mapped[ItemPublishStatus] = mapped_column(default=ItemPublishStatus.pending.value)
     created_at: Mapped[CREATED_AT]
     updated_at: Mapped[UPDATED_AT]
 
@@ -281,14 +341,33 @@ class Items(Base):
     )
 
     price: Mapped["ItemsPrice"] = relationship(
-        back_populates="item"
+        back_populates="item",
+        lazy="joined"
     )
 
     photos: Mapped[list["ItemsPhoto"]] = relationship(
-        back_populates="item"
+        back_populates="item",
+        lazy="joined"
     )
 
     production: Mapped["ProductionTime"] = relationship(
+        back_populates="item"
+    )
+
+    location: Mapped["ItemsLocations"] = relationship(
+        back_populates="item",
+        lazy="joined"
+    )
+
+    reviews: Mapped[list["ItemsReviews"]] = relationship(
+        back_populates="item"
+    )
+
+    clicks_quantity: Mapped[list["ItemsClicks"]] = relationship(
+        back_populates="item"
+    )
+
+    offers: Mapped[list["Offers"]] = relationship(
         back_populates="item"
     )
 
@@ -304,7 +383,8 @@ class ItemsCategory(Base):
     )
 
     category: Mapped[Categories] = relationship(
-        back_populates="items"
+        back_populates="items",
+        lazy="joined"
     )
 
 
@@ -342,11 +422,28 @@ class ProductionTime(Base):
 
     id: Mapped[INT_PK]
     item_id: Mapped[int] = mapped_column(ForeignKey("items.id", ondelete="CASCADE"))
-    from_time: Mapped[datetime.datetime] = mapped_column(TIMESTAMP)
-    to_time: Mapped[datetime.datetime] = mapped_column(TIMESTAMP)
+    from_time: Mapped[int] = mapped_column(nullable=True)
+    to_time: Mapped[int] = mapped_column(nullable=True)
 
     item: Mapped[Items] = relationship(
         back_populates="production"
+    )
+
+
+class ItemsLocations(Base):
+    __tablename__ = 'items_locations'
+
+    id: Mapped[INT_PK]
+    item_id: Mapped[int] = mapped_column(ForeignKey("items.id", ondelete="CASCADE"))
+    city_id: Mapped[int] = mapped_column(ForeignKey("cities.id", ondelete="CASCADE"))
+    address: Mapped[str] = mapped_column(String(255), nullable=True)
+
+    item: Mapped[Items] = relationship(
+        back_populates="location"
+    )
+    city: Mapped[Cities] = relationship(
+        back_populates="items",
+        lazy="joined"
     )
 
 
@@ -362,6 +459,10 @@ class Requests(Base):
 
     user: Mapped[Users] = relationship(
         back_populates="requests"
+    )
+
+    offers: Mapped["Offers"] = relationship(
+        back_populates="request"
     )
 
     photos: Mapped[list["RequestsPhotos"]] = relationship(
@@ -430,7 +531,16 @@ class Offers(Base):
     from_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     to_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     status: Mapped[OrdersStatus] = mapped_column(default=OrdersStatus.PENDING.value)
+    reject_comment: Mapped[str] = mapped_column(String(255), nullable=True)
     created_at: Mapped[CREATED_AT]
+
+    item: Mapped[Items] = relationship(
+        back_populates="offers"
+    )
+
+    request: Mapped[list["Requests"]] = relationship(
+        back_populates="offers"
+    )
 
     details: Mapped["OffersDetails"] = relationship(
         back_populates="offer"
@@ -442,7 +552,8 @@ class Offers(Base):
 
     from_user: Mapped[Users] = relationship(
         back_populates="offer_sender",
-        foreign_keys=[from_user_id]
+        foreign_keys=[from_user_id],
+        lazy="joined"
     )
 
     to_user: Mapped[Users] = relationship(
@@ -459,8 +570,7 @@ class OffersDetails(Base):
     comment: Mapped[str] = mapped_column(String(255), nullable=True)
     price: Mapped[float]
     currency: Mapped[str] = mapped_column(String(5), default="RUB")
-    production: Mapped[int]
-    production_unit: Mapped[str] = mapped_column(String(20))
+    production: Mapped[int] = mapped_column(nullable=True)
 
     offer: Mapped[Offers] = relationship(
         back_populates="details"
@@ -475,6 +585,7 @@ class OffersTreads(Base):
     from_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     to_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     text: Mapped[str] = mapped_column(String(255))
+    is_read: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[CREATED_AT]
     updated_at: Mapped[UPDATED_AT]
 
@@ -491,6 +602,75 @@ class OffersTreads(Base):
         back_populates="receiver",
         foreign_keys=[to_user_id]
     )
+
+
+class ItemsClicks(Base):
+    __tablename__ = 'items_clicks'
+
+    id: Mapped[INT_PK]
+    item_id: Mapped[int] = mapped_column(ForeignKey("items.id", ondelete="CASCADE"))
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    created_at: Mapped[CREATED_AT]
+
+    item: Mapped[Items] = relationship(
+        back_populates="clicks_quantity",
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "item_id", "user_id",
+            name="click_uniq_index",
+        ),
+    )
+
+
+class SellersReviews(Base):
+    __tablename__ = 'sellers_reviews'
+
+    id: Mapped[INT_PK]
+    seller_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    from_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    stars: Mapped[float]
+    text: Mapped[str] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[CREATED_AT]
+
+    seller: Mapped[Users] = relationship(
+        back_populates="reviews",
+        foreign_keys=[seller_id]
+    )
+
+    from_user: Mapped[Users] = relationship(
+        back_populates="my_reviews",
+        foreign_keys=[from_user_id]
+    )
+
+
+class ItemsReviews(Base):
+    __tablename__ = 'items_reviews'
+
+    id: Mapped[INT_PK]
+    item_id: Mapped[int] = mapped_column(ForeignKey("items.id", ondelete="CASCADE"))
+    from_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    stars: Mapped[float]
+    text: Mapped[str] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[CREATED_AT]
+
+    item: Mapped[Items] = relationship(
+        back_populates="reviews",
+    )
+
+    from_user: Mapped[Users] = relationship(
+        back_populates="my_items_reviews",
+    )
+
+
+class FAQs(Base):
+    __tablename__ = 'faqs'
+
+    id: Mapped[INT_PK]
+    question: Mapped[str] = mapped_column(String(255))
+    answer: Mapped[str] = mapped_column(String(255))
+
 
 
 async def create_tables():

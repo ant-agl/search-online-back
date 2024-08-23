@@ -35,3 +35,5 @@ class UserResponse(BaseModel):
     full_filled: bool
     is_blocked: bool
     updated_at: str
+
+

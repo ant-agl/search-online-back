@@ -60,13 +60,14 @@ class UserService(BaseService):
             ContactDTO(
                 type=contact.type.value,
                 value=contact.value,
-                is_hidden=contact.hidden
+                is_hidden=contact.is_hidden
             )
             for contact in body.contacts
         ]
         coroutines = [
             self._repository.fill_profile(user_id, profile_data),
-            self._repository.add_contacts(user_id, contacts)
+            self._repository.add_contacts(user_id, contacts),
+            self._repository.add_type(user_id, body.type)
         ]
         if company_data is not None:
             coroutines.append(
@@ -76,15 +77,6 @@ class UserService(BaseService):
         await asyncio.gather(*coroutines)
         await self.commit()
         return True
-
-    async def rollback(self):
-        await self._repository.session.rollback()
-
-    async def commit(self):
-        await self._repository.session.commit()
-
-    async def drop_user(self, user_id: int):
-        await self._repository.delete(user_id)
 
     async def update_profile(self, user_id: int, body: UpdateUserRequest):
         user_exist = await self._repository.is_exist(user_id=user_id)
@@ -150,7 +142,7 @@ class UserService(BaseService):
         if user_exist is None:
             raise UserNotFoundException()
         key = f"avatar-{user_id}.png"
-        link = cloud.get_link(f"avatar-{user_id}")
+        link = cloud.get_link(f"avatar-{user_id}.png")
         await cloud.session()
         await asyncio.gather(*[
             self._repository.save_avatar_link(user_id, link),
@@ -187,4 +179,12 @@ class UserService(BaseService):
             updated_at=str(user.updated_at),
         )
 
+    async def drop_user(self, user_id: int):
+        await self._repository.delete(user_id)
+
+    async def get_users_types(self, from_user_id: int, to_user_id: int = None):
+        result = await self._repository.users_types([from_user_id, to_user_id])
+        if result is None:
+            raise UserNotFoundException()
+        return result
 

@@ -87,7 +87,7 @@ class CommonRepository(BaseRepository):
         await self.session.commit()
         return new_category_id
 
-    async def get_category_by_status(self, category_id: int):
+    async def get_category_status_by_id(self, category_id: int):
         statement = select(
             Categories.on_moderating
         ).filter_by(
@@ -96,4 +96,18 @@ class CommonRepository(BaseRepository):
         result = await self.session.execute(statement)
         result = result.scalar_one_or_none()
         return result
+
+    async def get_category_by_id(self, category_id: int):
+        statement = select(
+            Categories
+        ).filter_by(
+            id=category_id,
+        )
+        result = await self.session.execute(statement)
+        result = result.scalar_one_or_none()
+        if result is None:
+            return None
+        return CategoryDTO.model_validate(
+            result, from_attributes=True
+        )
 

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 from aiobotocore.session import get_session
@@ -7,10 +8,12 @@ from app.settings import settings
 
 
 class CloudService:
+
     def __init__(self):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.bucket = settings.S3_BUCKET
         self.ctx = None
+        self.queue = asyncio.Queue()
 
     async def session(self):
         session = get_session()
@@ -24,7 +27,7 @@ class CloudService:
 
     @staticmethod
     def get_link(key):
-        return f"{settings.S3_PUBLIC_URL}/{key}.png"
+        return f"{settings.S3_PUBLIC_URL}/{key}"
 
     async def save_file(self, binary_file: bytes, key: str):
         try:
@@ -39,4 +42,13 @@ class CloudService:
         finally:
             await self.ctx.__aexit__(None, None, None)
 
-
+    async def delete_file(self, key: str):
+        try:
+            await self.ctx.delete_object(
+                Bucket=self.bucket, Key=key
+            )
+        except exc.BotoCoreError as e:
+            self.logger.error(e)
+            raise Exception(f"Ошибка удаления файла с ключом {key}")
+        finally:
+            await self.ctx.__aexit__(None, None, None)

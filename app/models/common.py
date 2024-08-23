@@ -17,3 +17,9 @@ class CategoryDTO(BaseModel):
     depend_on: int | None = None
     on_moderating: bool
     disabled: bool
+
+
+class CategoryShortDTO(BaseModel):
+    id: int
+    type: str
+    value: str

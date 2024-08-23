@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Union
 
 import sqlalchemy
 from sqlalchemy import select, delete, update
@@ -7,9 +8,10 @@ from sqlalchemy.orm import joinedload
 
 from app.models.auth import TokenPayload
 from app.models.users import UserCreateDTO, UserFillingDTO, ContactDTO, ComponyDataDTO, UserDTO, ContactsDTO
-from app.repository.models import Users, UsersCredentials, UsersContacts, UsersCities, Cities, UserAvatar
+from app.repository.models import Users, UsersCredentials, UsersContacts, UsersCities, Cities, UserAvatar, UsersType
 from app.repository.repository import BaseRepository
 from app.repository.users.exceptions import UserAlreadyExistsException, UserNotFoundException
+from app.utils.types import TypesOfUser
 
 
 class UsersRepository(BaseRepository):
@@ -61,8 +63,11 @@ class UsersRepository(BaseRepository):
             raise UserNotFoundException()
         return TokenPayload(
             id=result.id,
-            type=result.type.value
-            if result.type is not None else None,
+            types=[
+                tp.type.value
+                for tp in result.type
+            ]
+            if result.type else [],
             full_filled=result.full_filled,
             is_blocked=result.is_blocked,
         )
@@ -80,8 +85,11 @@ class UsersRepository(BaseRepository):
         return TokenPayload(
             id=result.id,
             full_filled=result.full_filled,
-            type=result.type.value
-            if result.type is not None else None,
+            types=[
+                tp.type.value
+                for tp in result.type
+            ]
+            if result.type else [],
             is_blocked=result.is_blocked,
         )
 
@@ -100,7 +108,6 @@ class UsersRepository(BaseRepository):
         ).filter_by(
             id=user_id
         ).values(
-            type=data.type.value,
             full_filled=True
         )
         city = UsersCities(
@@ -110,13 +117,20 @@ class UsersRepository(BaseRepository):
         self.session.add(city)
         await self.session.execute(statement)
 
+    async def add_type(self, user_id: int, _type: TypesOfUser) -> None:
+        __type = UsersType(
+            user_id=user_id,
+            type=_type.value
+        )
+        self.session.add(__type)
+
     async def add_contacts(self, user_id: int, contacts: list[ContactDTO]):
         contacts = [
             UsersContacts(
                 user_id=user_id,
                 type=contact.type.value,
                 value=contact.value,
-                is_hidden=contact.hidden
+                is_hidden=contact.is_hidden
             )
             for contact in contacts
         ]
@@ -218,7 +232,7 @@ class UsersRepository(BaseRepository):
             first_name=result.first_name,
             last_name=result.last_name,
             middle_name=result.middle_name,
-            type=result.type,
+            types=result.types,
             city=result.city,
             city_id=result.user_city.city_id,
             avatar=result.avatar.link,
@@ -232,4 +246,17 @@ class UsersRepository(BaseRepository):
             updated_at=result.updated_at,
         )
 
-
+    async def users_types(self, users: list[int]):
+        statement = select(
+            Users
+        ).filter(
+            Users.id.in_(users)
+        )
+        result = await self.session.execute(statement)
+        result = result.scalars().unique().all()
+        if len(result) < 2:
+            return None
+        users_types = {}
+        for user in result:
+            users_types[user.id] = user.types
+        return users_types

@@ -1,7 +1,6 @@
 import logging
 
 from fastapi import APIRouter, Depends
-from fastapi.security import OAuth2PasswordRequestForm
 from redis.asyncio import Redis
 
 from app.api.auth.requests import LoginRequest, RefreshTokenRequest
@@ -19,7 +18,7 @@ logger = logging.getLogger("AuthRouter")
 
 @router.post("/token", summary="Авторизация")
 async def login(
-        credentials: LoginRequest = Depends(),
+        credentials: LoginRequest,
         service: AuthTools = Depends(get_auth_service),
         redis: Redis = Depends(get_redis)
 ):
@@ -42,7 +41,7 @@ async def login(
 
 @router.post("/refresh", summary="Обновление токена доступа")
 async def refresh(
-        token: RefreshTokenRequest = Depends(),
+        token: RefreshTokenRequest,
         service: AuthTools = Depends(get_auth_service),
         redis: Redis = Depends(get_redis)
 ):
