@@ -23,3 +23,14 @@ class CategoryShortDTO(BaseModel):
     id: int
     type: str
     value: str
+
+
+class ReviewsByStarsDTO(BaseModel):
+    star: float
+    quantity: int
+
+
+class FAQsDTO(BaseModel):
+    id: int
+    question: str
+    answer: str

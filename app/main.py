@@ -8,7 +8,9 @@ from app.api.exceptions import BaseApiException
 from app.api.v1.users.router import router as users_router
 from app.api.v1.items.router import router as items_router
 from app.api.v1.offers.router import router as offers_router
+from app.api.v1.requests.router import router as requests_router
 from app.api.common.router import router as common_router
+from app.api.admin.router import router as admin_router
 from app.repository.models import create_tables
 from app.settings import settings
 
@@ -32,10 +34,12 @@ root_router = APIRouter(
 root_router.include_router(users_router, tags=["Пользователи"])
 root_router.include_router(items_router, tags=["Товары/услуги"])
 root_router.include_router(offers_router, tags=["Предложения"])
+root_router.include_router(requests_router, tags=["Запросы"])
 
 
 app.include_router(common_router, tags=["Общее"])
 app.include_router(auth_router, tags=["Авторизация, аутентификация, восстановление"])
+app.include_router(admin_router, tags=["Админка"])
 app.include_router(root_router)
 
 

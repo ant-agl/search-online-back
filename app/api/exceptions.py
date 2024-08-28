@@ -98,6 +98,26 @@ class UnprocessableApiException(BaseApiException):
         )
 
 
+class LockedApiException(BaseApiException):
+    def __init__(self, message: str = None):
+        super().__init__(
+            error="Locked",
+            success=False,
+            status_code=423,
+            message=message
+        )
+
+
+class TokenExpiredApiException(BaseApiException):
+    def __init__(self, message: str = None):
+        super().__init__(
+            status_code=493,
+            error="Token expired/invalid",
+            success=False,
+            message=message
+        )
+
+
 class InternalServerError(BaseApiException):
     """
     Наследник базового класса исключений сервера.

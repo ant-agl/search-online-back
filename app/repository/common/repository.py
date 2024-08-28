@@ -4,9 +4,9 @@ from sqlalchemy import select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from app.api.common.requests import CreateCategory
-from app.models.common import CitiesDTO, CityExtendedDTO, CategoryDTO
-from app.repository.models import Cities, Regions, Categories
+from app.api.common.requests import CreateCategory, TechnicalRequest
+from app.models.common import CitiesDTO, CityExtendedDTO, CategoryDTO, FAQsDTO
+from app.repository.models import Cities, Regions, Categories, FAQs, Users, UsersCredentials, TechnicalSupports
 from app.repository.repository import BaseRepository
 from app.utils.types import ItemType
 
@@ -110,4 +110,35 @@ class CommonRepository(BaseRepository):
         return CategoryDTO.model_validate(
             result, from_attributes=True
         )
+
+    async def get_faqs(self):
+        statement = select(FAQs)
+        result = await self.session.execute(statement)
+        result = result.scalars().all()
+        if not result:
+            return None
+        return [
+            FAQsDTO.model_validate(item, from_attributes=True)
+            for item in result
+        ]
+
+    async def check_user(self, contact_email: str):
+        statement = select(
+            UsersCredentials
+        ).filter_by(
+            email=contact_email
+        )
+        result = await self.session.execute(statement)
+        result = result.scalars().all()
+        if not result:
+            return None
+        else:
+            return True
+
+    async def register_tech_request(self, body: TechnicalRequest):
+        request = TechnicalSupports(
+            **body.model_dump()
+        )
+        self.session.add(request)
+        await self.session.commit()
 

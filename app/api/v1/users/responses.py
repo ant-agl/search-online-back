@@ -1,7 +1,8 @@
 from pydantic import BaseModel
 
 from app.api.v1.users.requests import Contacts
-from app.models.users import ContactDTO, ContactsDTO
+from app.models.common import ReviewsByStarsDTO
+from app.models.users import ContactDTO, ContactsDTO, ReviewDTO, CompanyDataDTO
 from app.utils.types import TypesOfUser
 
 
@@ -13,7 +14,7 @@ class UserInfo(BaseModel):
     first_name: str
     last_name: str
     middle_name: str | None = None
-    type: str
+    types: list[str]
 
 
 class CityInfo(BaseModel):
@@ -22,7 +23,7 @@ class CityInfo(BaseModel):
 
 
 class UserAvatar(BaseModel):
-    value: str
+    value: str | None = None
 
 
 class UserResponse(BaseModel):
@@ -31,9 +32,22 @@ class UserResponse(BaseModel):
     city: CityInfo
     avatar: UserAvatar
     contacts: list[ContactsDTO]
-    legal_info: None = None
+    legal_info: CompanyDataDTO | None = None
+    rating: float | None = None
     full_filled: bool
     is_blocked: bool
     updated_at: str
 
+
+class Meta(BaseModel):
+    page: int
+    total_items: int
+    total_pages: int
+    items_per_page: int
+
+
+class ReviewsResponse(BaseModel):
+    by_stars: list[ReviewsByStarsDTO | None]
+    result: list[ReviewDTO]
+    meta: Meta
 

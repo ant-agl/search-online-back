@@ -31,11 +31,13 @@ class OrdersStatus(enum.Enum):
     APPROVED = "APPROVED"
     PROCESSING = "PROCESSING"
     REJECTED = "REJECTED"
+    CANCELLED = "CANCELLED"
     COMPLETED = "COMPLETED"
 
 
 class ItemPublishStatus(enum.Enum):
     pending = "pending"
+    moderate = "moderate"
     approved = "approved"
     rejected = "rejected"
 
@@ -45,10 +47,22 @@ class OffersTypes(enum.Enum):
     to_me = "to_me"
 
 
+class ReviewTypes(enum.Enum):
+    from_me = "from_me"
+    to_me = "to_me"
+
+
+class ReviewTarget(enum.Enum):
+    seller = "seller"
+    item = "item"
+    service = "service"
+
+
 STATUS_MAP: Final[dict[str, str]] = {
-    "PENDING": "В обработке",
+    "PENDING": "Новый",
     "APPROVED": "Подтвержден",
     "PROCESSING": "Выполняется",
     "REJECTED": "Отклонен исполнителем",
+    "CANCELLED": "Отменен заказчиком",
     "COMPLETED": "Завершен",
 }

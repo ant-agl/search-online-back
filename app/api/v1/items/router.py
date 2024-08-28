@@ -1,10 +1,11 @@
+import asyncio
 import logging
 from typing import Union
 
 from fastapi import APIRouter, Depends, UploadFile, BackgroundTasks, Query
 from starlette.responses import JSONResponse
 
-from app.api.dependencies import get_items_service, get_common_service, get_cloud_service
+from app.api.dependencies import get_items_service, get_common_service, get_cloud_service, get_offers_service
 from app.api.exceptions import ForbiddenApiException, UnprocessableApiException, InternalServerError, \
     NotFoundApiException, BadRequestApiException, ErrorResponse
 from app.api.v1.items.requests import CreateItem, UpdateItem, GetCards
@@ -18,6 +19,7 @@ from app.services.common.service import CommonService
 from app.services.items.exceptions import MinPriceOverMaxPriceException, CategoryDisabledException, \
     CategoryOnModeratingException, ItemNotFoundException, PhotoNotFoundException
 from app.services.items.service import ItemsService
+from app.services.offers.service import OffersService
 from app.utils.types import ItemType
 
 router = APIRouter(
@@ -70,19 +72,30 @@ async def get_items_my_page(
 
 @router.get(
     "/cards/my/{item_id}", summary="Услуга/товар продавца по ID",
-    status_code=200, response_model=Union[GetItemResponseSeller, ErrorResponse]
+    status_code=200, response_model=Union[GetItemResponseSeller, ErrorResponse | dict]
 )
 async def get_items_my_page(
         item_id: int,
+        offer_page: int = Query(1, ge=1),
+        offer_limit: int = Query(5, ge=1, le=10),
         user: TokenPayload = Depends(Authenticator.get_current_user),
         service: ItemsService = Depends(get_items_service),
+        offers_service: OffersService = Depends(get_offers_service),
 ):
     try:
-        item = await service.get_item_by_id(item_id, user.id)
-        offers = []
+        item = service.get_item_by_id(item_id, user.id)
+        offers = offers_service.get_offers_by_criteria(
+            {
+                "item_id": item_id, "status": "PENDING"
+            }, offer_page, offer_limit, exclude=["item"]
+        )
+        item, offers = await asyncio.gather(
+            item, offers
+        )
         return GetItemResponseSeller(
             id=item.id,
             title=item.title,
+            type=item.type,
             description=item.description,
             status=item.status,
             price=PriceResponse(
@@ -106,8 +119,9 @@ async def get_items_my_page(
             ),
             clicks=item.clicks,
             date_create=item.date_created,
-            offers=offers,
-        )
+            offers=offers[0],
+            meta=offers[1]
+        ).model_dump(exclude_none=True)
     except ItemNotFoundException as e:
         raise NotFoundApiException(str(e))
     except AssertionError:
@@ -176,6 +190,7 @@ async def get_item_card(
         return GetItemResponse(
             id=item.id,
             title=item.title,
+            type=item.type,
             description=item.description,
             status=item.status,
             price=PriceResponse(
@@ -349,3 +364,38 @@ async def delete_item(
         logger.exception(e)
         raise InternalServerError(str(e))
 
+
+@router.post(
+    "/card/{item_id}/reviews", status_code=201,
+    summary="Оставить отзыв о товаре/услуге", deprecated=True
+)
+async def create_item_review():
+    try:
+        ...
+    except Exception as e:
+        logger.exception(e)
+        raise InternalServerError(str(e))
+
+
+@router.get(
+    "/card/{item_id}/reviews", status_code=201,
+    summary="Посмотреть отзывы о товаре/услуге", deprecated=True
+)
+async def create_item_review():
+    try:
+        ...
+    except Exception as e:
+        logger.exception(e)
+        raise InternalServerError(str(e))
+
+
+@router.delete(
+    "/card/{item_id}/reviews/{review_id}", status_code=201,
+    summary="Удалить отзыв о товаре/услуге", deprecated=True
+)
+async def create_item_review():
+    try:
+        ...
+    except Exception as e:
+        logger.exception(e)
+        raise InternalServerError(str(e))

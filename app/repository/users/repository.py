@@ -2,13 +2,18 @@ from abc import ABC, abstractmethod
 from typing import Union
 
 import sqlalchemy
-from sqlalchemy import select, delete, update
+from babel.dates import format_date
+from sqlalchemy import select, delete, update, func, literal, Float, text, union_all
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
+from app.api.v1.users.requests import CreateSellerReviewRequest
 from app.models.auth import TokenPayload
-from app.models.users import UserCreateDTO, UserFillingDTO, ContactDTO, ComponyDataDTO, UserDTO, ContactsDTO
-from app.repository.models import Users, UsersCredentials, UsersContacts, UsersCities, Cities, UserAvatar, UsersType
+from app.models.common import ReviewsByStarsDTO
+from app.models.users import UserCreateDTO, UserFillingDTO, ContactDTO, CompanyDataDTO, UserDTO, ContactsDTO, ReviewDTO, \
+    UserShortDTO
+from app.repository.models import Users, UsersCredentials, UsersContacts, UsersCities, Cities, UserAvatar, UsersType, \
+    SellersReviews, UserReports, LegalInfo
 from app.repository.repository import BaseRepository
 from app.repository.users.exceptions import UserAlreadyExistsException, UserNotFoundException
 from app.utils.types import TypesOfUser
@@ -137,8 +142,13 @@ class UsersRepository(BaseRepository):
 
         self.session.add_all(contacts)
 
-    async def add_compony_data(self, user_id: int, company_data: ComponyDataDTO):
-        pass
+    async def add_compony_data(self, user_id: int, company_data: CompanyDataDTO):
+        company_data = LegalInfo(
+            user_id=user_id,
+            type=company_data.type.value,
+            **company_data.model_dump(exclude_none=True, exclude={"type"})
+        )
+        self.session.add(company_data)
 
     async def is_exist(self, user_id: int):
         statement = select(
@@ -208,7 +218,7 @@ class UsersRepository(BaseRepository):
         self.session.add(avatar)
         await self.session.commit()
 
-    async def get(self, user_id: int):
+    async def get(self, user_id: int, extended: bool = False):
         statement = select(
             Users
         ).filter_by(
@@ -235,14 +245,17 @@ class UsersRepository(BaseRepository):
             types=result.types,
             city=result.city,
             city_id=result.user_city.city_id,
-            avatar=result.avatar.link,
+            avatar=result.avatar.link if result.avatar else None,
             contacts=[
                 ContactsDTO.model_validate(contact, from_attributes=True)
                 for contact in result.contacts
             ],
             full_filled=result.full_filled,
             is_blocked=result.is_blocked,
-            legal_info=None,
+            legal_info=CompanyDataDTO.model_validate(
+                result.legal_info, from_attributes=True
+            ) if extended else None,
+            rating=result.rating if extended else None,
             updated_at=result.updated_at,
         )
 
@@ -254,9 +267,145 @@ class UsersRepository(BaseRepository):
         )
         result = await self.session.execute(statement)
         result = result.scalars().unique().all()
-        if len(result) < 2:
+        if len(result) < 2 and len(users) > 1:
             return None
         users_types = {}
         for user in result:
             users_types[user.id] = user.types
         return users_types
+
+    async def create_review(
+            self, from_user_id: int, to_user_id: int,
+            body: CreateSellerReviewRequest
+    ):
+        review = SellersReviews(
+            seller_id=to_user_id,
+            from_user_id=from_user_id,
+            stars=body.stars,
+            text=body.text,
+        )
+        self.session.add(review)
+        await self.session.commit()
+
+    async def delete_review(self, review_id: int):
+        statement = delete(
+            SellersReviews
+        ).filter_by(
+            id=review_id
+        )
+        await self.session.execute(statement)
+        await self.session.commit()
+
+    async def get_review_owner(self, review_id: int):
+        statement = select(
+            SellersReviews.from_user_id
+        ).filter_by(
+            id=review_id
+        )
+        result = await self.session.execute(statement)
+        result = result.scalar_one_or_none()
+        return result
+
+    async def get_reviews(self, criteria: dict, offset: int, limit: int):
+        statement = select(
+            SellersReviews
+        ).filter_by(
+            **criteria
+        ).options(
+            joinedload(SellersReviews.from_user)
+        ).offset(offset).limit(limit)
+        result = await self.session.execute(statement)
+        result = result.scalars().unique().all()
+        if not result:
+            return []
+        return [
+            ReviewDTO(
+                user=UserShortDTO(
+                    id=review.from_user.id,
+                    full_name=review.from_user.full_name,
+                    city=review.from_user.city,
+                    avatar=review.from_user.avatar.link if review.from_user.avatar else None,
+                ),
+                stars=review.stars,
+                text=review.text,
+                created_at=format_date(
+                    review.created_at, format="d MMMM y", locale="ru"
+                )
+            )
+            for review in result
+        ]
+
+    async def get_reviews_quantity(self, criteria: dict):
+        statement = select(
+            func.count(SellersReviews.id)
+        ).filter_by(
+            **criteria
+        )
+        result = await self.session.execute(statement)
+        result = result.scalar_one_or_none()
+        return result
+
+    async def get_grouped_reviews(self, user_id: int, stars: list[float], is_seller: bool = False):
+        stars_cte = union_all(
+                *[
+                    select(literal(val).label(f"stars"))
+                    for val in stars
+                ]
+        ).cte("stars_range")
+
+        statement = select(
+            stars_cte,
+            func.count(SellersReviews.id)
+        ).outerjoin(
+            SellersReviews, stars_cte.c.stars == SellersReviews.stars
+        ).group_by(
+            stars_cte.c.stars
+        ).order_by(
+            stars_cte.c.stars.desc()
+        ).filter(
+            (SellersReviews.seller_id == user_id)
+            if is_seller else (SellersReviews.from_user_id == user_id)
+        )
+        result = await self.session.execute(statement)
+        result = result.fetchall()
+        if not result:
+            return []
+        return [
+            ReviewsByStarsDTO(
+                star=res[0],
+                quantity=res[1]
+            )
+            for res in result
+        ]
+
+    async def add_report(self, from_user_id: int, to_user_id: int, reason: str):
+        report = UserReports(
+            from_user_id=from_user_id,
+            to_user_id=to_user_id,
+            reason=reason,
+        )
+        self.session.add(report)
+        await self.session.commit()
+
+    async def get_reports_quantity(self, to_user_id: int):
+        statement = select(
+            func.count(UserReports.id)
+        ).filter_by(
+            to_user_id=to_user_id
+        )
+        result = await self.session.execute(statement)
+        result = result.scalar_one_or_none()
+        return result
+
+    async def block_user(self, user_id: int):
+        statement = update(
+            Users
+        ).filter_by(
+            id=user_id
+        ).values(
+            is_blocked=True
+        )
+        await self.session.execute(statement)
+        await self.session.commit()
+
+

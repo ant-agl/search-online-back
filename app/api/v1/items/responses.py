@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 
 from app.api.v1.offers.responses import ShortOfferResponseModel
+from app.api.v1.offers.responses import Meta as OfferMetaModel
 from app.models.items import OffersDTO
 
 
@@ -32,6 +33,7 @@ class ItemPhotosResponse(BaseModel):
 class ItemShortResponse(BaseModel):
     id: int
     title: str
+    type: str
     status: str
     price: PriceResponse
     location: LocationResponse | None = None
@@ -65,3 +67,4 @@ class GetItemResponse(ItemShortResponse):
 
 class GetItemResponseSeller(GetItemResponse):
     offers: list[ShortOfferResponseModel | None]
+    meta: OfferMetaModel

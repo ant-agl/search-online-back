@@ -196,6 +196,7 @@ class ItemsService(BaseService):
                 ItemShortResponse(
                     id=item.id,
                     title=item.title,
+                    type=item.type,
                     status=item.status,
                     price=PriceResponse(
                         fix_price=item.price,
@@ -250,3 +251,23 @@ class ItemsService(BaseService):
 
     async def check_seller_item(self, item_id: int):
         return await self._repository.get_item_creator(item_id)
+
+    async def get_reviews_from_user(
+            self, user_id: int, value: str,
+            offset: int, limit: int, by_stars: int | None = None
+    ):
+        total_items = self._repository.get_reviews_quantity_for_user(
+            user_id=user_id, _format=value
+        )
+        total_reviews_by_stars = self._repository.get_grouped_reviews(
+            user_id=user_id, _format=value
+        )
+        reviews = self._repository.get_items_reviews_by_user(
+            user_id=user_id, _format=value, offset=offset, limit=limit
+        )
+        reviews, total_items, total_reviews_by_stars = await asyncio.gather(
+            reviews, total_items, total_reviews_by_stars
+        )
+        return reviews, total_items, total_reviews_by_stars
+
+

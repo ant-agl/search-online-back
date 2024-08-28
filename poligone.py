@@ -1,4 +1,8 @@
 
 
-for i in range(100, 250):
-    print(f"{i},service,")
+class Poligone(object):
+    status = 9
+
+
+attr_name = getattr(Poligone(), "status")
+print(attr_name)

@@ -91,12 +91,10 @@ async def get_all_offers(
         page_limit: int = Query(50, ge=1, le=100),
         user: TokenPayload = Depends(Authenticator.get_current_user),
         service: OffersService = Depends(get_offers_service),
-        users_service: UserService = Depends(get_user_service),
-        items_service: ItemsService = Depends(get_items_service),
 ):
     try:
         result, meta = await service.get_offers(
-            user.id, target.value, users_service, items_service,
+            user.id, target.value,
             page, page_limit
         )
         return GetOffersResponse(
@@ -132,7 +130,7 @@ async def delete_offer(
 
 
 @router.patch(
-    "/{offer_id}/details/", summary="Изменить детали заказа",
+    "/{offer_id}/details", summary="Изменить детали заказа",
     status_code=200
 )
 async def update_offer(

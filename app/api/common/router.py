@@ -4,14 +4,16 @@ from typing import Union
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 
-from app.api.common.requests import CreateCategory
+from app.api.common.requests import CreateCategory, TechnicalRequest
 from app.api.common.responses import GetCities, GetCategoryTree
 from app.api.dependencies import get_common_service
-from app.api.exceptions import InternalServerError, ErrorResponse, ForbiddenApiException, BadRequestApiException
+from app.api.exceptions import InternalServerError, ErrorResponse, ForbiddenApiException, BadRequestApiException, \
+    NotFoundApiException
 from app.models.auth import TokenPayload
 from app.services.auth.service import Authenticator
 from app.services.common.exceptions import ExceedingMaxDepth
 from app.services.common.service import CommonService
+from app.services.users.exceptions import UserNotFoundException
 from app.utils.types import ItemType
 
 router = APIRouter(
@@ -101,6 +103,39 @@ async def get_category_status(
                 "status": result
             }, status_code=200
         )
+    except Exception as e:
+        logger.exception(e)
+        raise InternalServerError(str(e))
+
+
+@router.get("/faqs", status_code=200, summary="FAQs")
+async def get_faqs(
+        service: CommonService = Depends(get_common_service),
+):
+    try:
+        return await service.get_faqs()
+    except Exception as e:
+        logger.exception(e)
+        raise InternalServerError(str(e))
+
+
+@router.post(
+    "/help", status_code=201,
+    summary="Запрос в тех. поддержку"
+)
+async def help_request(
+        body: TechnicalRequest,
+        service: CommonService = Depends(get_common_service),
+):
+    try:
+        result = await service.create_tech_support(body)
+        return JSONResponse(
+            content={
+                "success": True,
+            }, status_code=201
+        )
+    except UserNotFoundException as e:
+        raise NotFoundApiException(str(e))
     except Exception as e:
         logger.exception(e)
         raise InternalServerError(str(e))

@@ -1,18 +1,24 @@
 import asyncio
+import math
 import pprint
 import uuid
 
+from sqlalchemy.exc import IntegrityError
+
 from app.api.v1.users.requests import RegistryUserRequest, FullRegistryUserRequest, UpdateUserRequest, Contacts, \
-    UpdateContactRequest
-from app.api.v1.users.responses import UserResponse, UserInfo, CityInfo, UserAvatar
+    UpdateContactRequest, CreateSellerReviewRequest, CompanyData
+from app.api.v1.users.responses import UserResponse, UserInfo, CityInfo, UserAvatar, ReviewsResponse, Meta
 from app.models.auth import TokenPayload
-from app.models.users import UserCreateDTO, UserFillingDTO, ContactDTO, ComponyDataDTO, UpdateUserDTO, ContactsDTO, \
+from app.models.users import UserCreateDTO, UserFillingDTO, ContactDTO, CompanyDataDTO, UpdateUserDTO, ContactsDTO, \
     UserDTO
 from app.repository.users.exceptions import UserAlreadyExistsException
 from app.repository.users.repository import UsersRepository
 from app.services.cloud_service import CloudService
+from app.services.items.service import ItemsService
 from app.services.service import BaseService
-from app.services.users.exceptions import UserNotFoundException
+from app.services.users.exceptions import UserNotFoundException, AssertionUserReviewException, ReviewException, \
+    ReviewNotFoundException, AlreadySellerException, SelfReportException
+from app.utils.types import TypesOfUser
 
 
 class UserService(BaseService):
@@ -45,7 +51,7 @@ class UserService(BaseService):
         company_data = None
         if body.type.value == "seller":
             # TODO: Логика проверки данных компании
-            company_data = ComponyDataDTO(
+            company_data = CompanyDataDTO(
                 legal_format=body.company_data.legal_format,
                 company_name=body.company_data.company_name,
                 address=body.company_data.address,
@@ -149,9 +155,13 @@ class UserService(BaseService):
             cloud.save_file(photo, key)
         ])
 
-    async def get_user_profile(self, user_id: int):
+    async def get_user_profile(self, user_id: int, types: list[str]):
+        extend = False
+        if "seller" in types:
+            extend = True
+
         user: UserDTO | None = await self._repository.get(
-            user_id=user_id
+            user_id=user_id, extended=extend
         )
         if user is None:
             raise UserNotFoundException()
@@ -159,7 +169,7 @@ class UserService(BaseService):
             first_name=user.first_name,
             last_name=user.last_name,
             middle_name=user.middle_name,
-            type=user.type.value,
+            types=user.types,
         )
         city = CityInfo(
             id=user.city_id,
@@ -174,10 +184,12 @@ class UserService(BaseService):
             city=city,
             avatar=avatar,
             contacts=user.contacts,
+            legal_info=user.legal_info if extend else None,
+            rating=user.rating,
             full_filled=user.full_filled,
             is_blocked=user.is_blocked,
             updated_at=str(user.updated_at),
-        )
+        ).model_dump(exclude_none=True)
 
     async def drop_user(self, user_id: int):
         await self._repository.delete(user_id)
@@ -187,4 +199,146 @@ class UserService(BaseService):
         if result is None:
             raise UserNotFoundException()
         return result
+
+    async def create_review(
+            self, from_user_id: int, to_user_id: int,
+            body: CreateSellerReviewRequest
+    ):
+        if from_user_id == to_user_id:
+            raise AssertionUserReviewException("Вы не можете оставить отзыв самому себе")
+        to_user_types = await self._repository.users_types([to_user_id])
+        if to_user_types is None:
+            raise UserNotFoundException()
+        if "seller" not in to_user_types[to_user_id]:
+            raise ReviewException("Вы не можете оставить только о продавце")
+        try:
+            await self._repository.create_review(from_user_id, to_user_id, body)
+            return True
+        except IntegrityError:
+            raise ReviewException("Вы уже оставляли отзыв об этом продавце")
+
+    async def delete_review(self, review_id: int, user_id: int):
+        owner_id = await self._repository.get_review_owner(review_id)
+        if owner_id is None:
+            raise ReviewNotFoundException(review_id)
+        if owner_id != user_id:
+            raise AssertionUserReviewException("Вы не можете удалить отзыв, который писали не вы")
+        await self._repository.delete_review(review_id)
+
+    async def get_reviews_about_me(
+            self, user: TokenPayload,
+            page: int, page_limit: int,
+            by_stars: int | None = None
+    ):
+        if "seller" not in user.types:
+            raise ReviewException("Услуга доступна только продавцам")
+
+        offset = (page - 1) * page_limit
+
+        criteria = {
+            "seller_id": user.id,
+        }
+
+        if by_stars is not None:
+            criteria["stars"] = by_stars
+        stars_values = [1.0, 2.0, 3.0, 4.0, 5.0]
+        total_review_by_stars = self._repository.get_grouped_reviews(
+            user.id, stars_values, is_seller=True
+        )
+        total_items = self._repository.get_reviews_quantity(criteria)
+        reviews = self._repository.get_reviews(criteria, offset, page_limit)
+        reviews, total_items, total_reviews = await asyncio.gather(
+            reviews, total_items, total_review_by_stars
+        )
+
+        meta = Meta(
+            page=page,
+            total_items=total_items,
+            total_pages=(total_items + page_limit - 1) // page_limit,
+            items_per_page=page_limit,
+        )
+
+        return ReviewsResponse(
+            by_stars=total_reviews,
+            result=reviews,
+            meta=meta,
+        )
+
+    async def get_reviews_from_me(
+            self, user_id: int, value: str,
+            page: int, page_limit: int,
+            item_service: ItemsService,
+            by_stars: int | None = None,
+    ):
+        offset = (page - 1) * page_limit
+
+        criteria = {
+            "from_user_id": user_id,
+        }
+
+        if by_stars is not None:
+            criteria["stars"] = by_stars
+        stars_values = [1.0, 2.0, 3.0, 4.0, 5.0]
+        total_items = 0
+        reviews = []
+        total_reviews = 0
+        if value == "seller":
+            total_review_by_stars = self._repository.get_grouped_reviews(
+                user_id, stars_values
+            )
+            total_items = self._repository.get_reviews_quantity(criteria)
+            reviews = self._repository.get_reviews(criteria, offset, page_limit)
+            reviews, total_items, total_reviews = await asyncio.gather(
+                reviews, total_items, total_review_by_stars
+            )
+        elif value in ["item", "service"]:
+            reviews, total_items, total_reviews = (
+                await item_service.get_reviews_from_user(
+                    user_id, value, offset, page_limit,
+                )
+            )
+
+        meta = Meta(
+            page=page,
+            total_items=total_items,
+            total_pages=(total_items + page_limit - 1) // page_limit,
+            items_per_page=page_limit,
+        )
+
+        return ReviewsResponse(
+            by_stars=total_reviews,
+            result=reviews,
+            meta=meta,
+        )
+
+    async def become_seller(self, user_id: int, body: CompanyData):
+        user_types = await self._repository.users_types([user_id])
+        if user_types is None:
+            raise UserNotFoundException()
+        if "seller" in user_types[user_id]:
+            raise AlreadySellerException()
+        await asyncio.gather(
+            self._repository.add_type(user_id, TypesOfUser.seller),
+            self._repository.add_compony_data(user_id, CompanyDataDTO.model_validate(
+                body, from_attributes=True
+            ))
+        )
+        await self.commit()
+        return True
+
+    async def add_report(self, from_user_id: int, to_user_id: int, reason: str):
+        if from_user_id == to_user_id:
+            raise SelfReportException()
+
+        try:
+            await self._repository.add_report(from_user_id, to_user_id, reason)
+            reports_quantity = await self._repository.get_reports_quantity(to_user_id)
+            if reports_quantity == 3:
+                await self._repository.block_user(to_user_id)
+            return True
+        except IntegrityError:
+            return True
+
+
+
 

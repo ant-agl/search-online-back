@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 
-from app.models.common import CitiesDTO
+from app.models.common import CitiesDTO, FAQsDTO
 
 
 class GetCities(BaseModel):
@@ -18,3 +18,7 @@ class Category(BaseModel):
 
 class GetCategoryTree(BaseModel):
     result: list[Category]
+
+
+class FAQSResponse(BaseModel):
+    result: list[FAQsDTO]

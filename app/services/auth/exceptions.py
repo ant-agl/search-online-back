@@ -20,3 +20,10 @@ class BadCredentialsException(Exception):
         super().__init__(
             "Не правильный логин или пароль"
         )
+
+
+class BlockedUserException(Exception):
+    def __init__(self):
+        super().__init__(
+            "Вы были заблокированы. Свяжитесь с поддержкой. Мы уверены, что это какая-то ошибка"
+        )

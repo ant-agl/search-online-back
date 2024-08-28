@@ -1,12 +1,13 @@
 import copy
 
-from app.api.common.requests import CreateCategory
-from app.api.common.responses import Category
+from app.api.common.requests import CreateCategory, TechnicalRequest
+from app.api.common.responses import Category, FAQSResponse
 from app.models.common import CitiesDTO
 from app.repository.common.repository import CommonRepository
 from app.services.common.exceptions import CityNotFoundException, CityNotActiveException, ExceedingMaxDepth, \
     CategoryNotFoundException
 from app.services.service import BaseService
+from app.services.users.exceptions import UserNotFoundException
 from app.utils.types import ItemType
 
 
@@ -92,5 +93,17 @@ class CommonService(BaseService):
         if result is None:
             raise CategoryNotFoundException(category_id)
         return result
+
+    async def get_faqs(self):
+        result = await self._repository.get_faqs()
+        return FAQSResponse(
+            result=result
+        )
+
+    async def create_tech_support(self, body: TechnicalRequest):
+        check_user = await self._repository.check_user(body.contact_email)
+        if check_user is None:
+            raise UserNotFoundException()
+        await self._repository.register_tech_request(body)
 
 

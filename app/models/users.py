@@ -3,7 +3,7 @@ import datetime
 from pydantic import BaseModel
 
 from app.api.v1.users.requests import RegistryUserRequest, CompanyData, Contacts
-from app.utils.types import TypesOfUser
+from app.utils.types import TypesOfUser, LegalFormat
 
 
 class UserCreateDTO(RegistryUserRequest):
@@ -16,8 +16,14 @@ class UserFillingDTO(BaseModel):
     main_category: int | None = None
 
 
-class ComponyDataDTO(CompanyData):
-    ...
+class CompanyDataDTO(BaseModel):
+    type: LegalFormat
+    company_name: str | None = None
+    legal_address: str | None = None
+    inn: str | None = None
+    ogrn: str | None = None
+    ogrnip: str | None = None
+    kpp: str | None = None
 
 
 class ContactDTO(Contacts):
@@ -34,6 +40,13 @@ class ContactsDTO(ContactDTO):
     id: int
 
 
+class ReviewDTO(BaseModel):
+    user: "UserShortDTO"
+    stars: float
+    text: str | None = None
+    created_at: str
+
+
 class UserDTO(BaseModel):
     id: int
     first_name: str
@@ -46,7 +59,8 @@ class UserDTO(BaseModel):
     contacts: list[ContactsDTO]
     full_filled: bool
     is_blocked: bool
-    legal_info: None
+    legal_info: CompanyDataDTO | None = None
+    rating: float | None = None
     updated_at: datetime.datetime
 
 
@@ -55,3 +69,6 @@ class UserShortDTO(BaseModel):
     full_name: str
     city: str
     avatar: str | None = None
+
+
+

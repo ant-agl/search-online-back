@@ -1,4 +1,5 @@
 import asyncio
+from typing import Any
 
 from babel.dates import format_date
 
@@ -60,73 +61,13 @@ class OffersService(BaseService):
 
     async def get_offers(
             self, user_id: int, value: str,
-            user_service: UserService, items_service: ItemsService,
             page: int, limit: int
     ):
-
-        offset = (page - 1) * limit
         key = "from_user_id" if value == "from_me" else "to_user_id"
         criteria = {
             key: user_id
         }
-
-        total = self._repository.get_user_offers_quantity(
-            criteria
-        )
-
-        offers = self._repository.get_offers_from_me(
-            criteria, offset, limit
-        )
-
-        result, total = await asyncio.gather(
-            offers, total
-        )
-        del offset
-        meta = Meta(
-            page=page,
-            total_items=total,
-            total_pages=(total + limit - 1) // limit,
-            items_per_page=limit,
-        )
-        if result is not None:
-            result = [
-                ShortOfferResponseModel(
-                    id=offer.id,
-                    from_user=UserShortResponse.model_validate(offer.from_user, from_attributes=True),
-                    to_user=UserShortResponse.model_validate(offer.to_user, from_attributes=True),
-                    status=OfferStatus(
-                        status=STATUS_MAP[offer.status],
-                        comment=offer.status_comment
-                    ).model_dump(exclude_none=True),
-                    item=ItemShortResponse(
-                        id=offer.item.id,
-                        title=offer.item.title,
-                        status=offer.item.status,
-                        price=PriceResponse(
-                            fix_price=offer.item.price,
-                            from_price=offer.item.from_price,
-                            to_price=offer.item.to_price,
-                            currency=offer.item.currency
-                        ).model_dump(exclude_none=True),
-                        location=LocationResponse(
-                            city=offer.item.city,
-                            address=offer.item.address
-                        ).model_dump(exclude_none=True),
-                        photos=[
-                            ItemPhotosResponse.model_validate(photo, from_attributes=True)
-                            for photo in offer.item.photos
-                        ] if offer.item.photos else [],
-                        date_create=offer.item.date_created
-                    ),
-                    request=None,
-                    date_create=offer.created_at
-                ).model_dump(exclude_none=True)
-                for offer in result
-            ]
-        else:
-            result = []
-
-        return result, meta
+        return await self.get_offers_by_criteria(criteria, page, limit)
 
     async def delete_offer(self, offer_id: int, user_id: int):
         offer_sender = await self._repository.get_offer_sender(offer_id)
@@ -255,6 +196,73 @@ class OffersService(BaseService):
         update_data = value.model_dump(exclude_none=True)
         await self._repository.update_details(offer_id, update_data)
         return receiver_id
+
+    async def get_offers_by_criteria(
+            self, criteria: dict[str, Any],
+            page: int, limit: int, exclude: list = None
+    ):
+        offset = (page - 1) * limit
+
+        total = self._repository.get_user_offers_quantity(
+            criteria
+        )
+
+        offers = self._repository.get_offers_by_criteria(
+            criteria, offset, limit
+        )
+
+        result, total = await asyncio.gather(
+            offers, total
+        )
+        del offset
+        meta = Meta(
+            page=page,
+            total_items=total,
+            total_pages=(total + limit - 1) // limit,
+            items_per_page=limit,
+        )
+        if result is not None:
+            result = [
+                ShortOfferResponseModel(
+                    id=offer.id,
+                    from_user=UserShortResponse.model_validate(offer.from_user, from_attributes=True),
+                    to_user=UserShortResponse.model_validate(offer.to_user, from_attributes=True),
+                    status=OfferStatus(
+                        status=STATUS_MAP[offer.status],
+                        comment=offer.status_comment
+                    ).model_dump(exclude_none=True),
+                    item=ItemShortResponse(
+                        id=offer.item.id,
+                        title=offer.item.title,
+                        status=offer.item.status,
+                        price=PriceResponse(
+                            fix_price=offer.item.price,
+                            from_price=offer.item.from_price,
+                            to_price=offer.item.to_price,
+                            currency=offer.item.currency
+                        ).model_dump(exclude_none=True),
+                        location=LocationResponse(
+                            city=offer.item.city,
+                            address=offer.item.address
+                        ).model_dump(exclude_none=True),
+                        photos=[
+                            ItemPhotosResponse.model_validate(photo, from_attributes=True)
+                            for photo in offer.item.photos
+                        ] if offer.item.photos else [],
+                        date_create=offer.item.date_created
+                    ),
+                    request=None,
+                    date_create=offer.created_at
+                ).model_dump(
+                    exclude_none=True,
+                    exclude=set(exclude) if exclude else None
+                )
+                for offer in result
+            ]
+        else:
+            result = []
+
+        return result, meta
 
 
 

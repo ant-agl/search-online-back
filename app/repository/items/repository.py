@@ -1,5 +1,5 @@
 from babel.dates import format_date
-from sqlalchemy import select, delete, func, or_, and_
+from sqlalchemy import select, delete, func, or_, and_, union_all, literal
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, with_loader_criteria, selectinload, contains_eager
 
@@ -8,8 +8,10 @@ from app.api.v1.items.requests import Location
 from app.models.common import CategoryShortDTO
 from app.models.items import ItemCreateDTO, ItemPriceDTO, ItemProductionDTO, ItemShortDTO, PhotosDTO, ItemFullDTO, \
     Seller, OffersDTO, OfferSenderDTO
+from app.models.common import ReviewsByStarsDTO
+from app.models.users import ReviewDTO, UserShortDTO
 from app.repository.models import Items, ItemsPrice, ProductionTime, ItemsCategory, ItemsPhoto, ItemsLocations, Users, \
-    Offers, ItemsClicks
+    Offers, ItemsClicks, ItemsReviews
 from app.repository.repository import BaseRepository
 
 
@@ -164,6 +166,7 @@ class ItemsRepository(BaseRepository):
             ItemShortDTO(
                 id=item.id,
                 title=item.title,
+                type=item.format,
                 price=item.price.price,
                 from_price=item.price.from_price,
                 to_price=item.price.to_price,
@@ -216,6 +219,7 @@ class ItemsRepository(BaseRepository):
         return ItemFullDTO(
             id=item.id,
             title=item.title,
+            type=item.format,
             price=item.price.price,
             from_price=item.price.from_price,
             to_price=item.price.to_price,
@@ -292,3 +296,116 @@ class ItemsRepository(BaseRepository):
         self.session.add(click)
         await self.session.commit()
 
+    async def get_reviews_quantity_for_user(
+            self, _format: str, user_id: int | None = None, item_id: int | None = None
+    ) -> int:
+
+        condition = None
+
+        if user_id is not None:
+            condition = ItemsReviews.from_user_id == user_id
+        elif item_id is not None:
+            condition = ItemsReviews.item_id == item_id
+
+        statement = select(
+            func.count(ItemsReviews.id)
+        ).join(
+            Items
+        ).filter(
+            and_(
+                condition,
+                Items.format == _format
+            )
+        )
+        result = await self.session.execute(statement)
+        result = result.scalar_one_or_none()
+        return result
+
+    async def get_grouped_reviews(
+            self, _format: str, user_id: int | None = None, item_id: int | None = None
+    ):
+        stars_values = [1.0, 2.0, 3.0, 4.0, 5.0]
+        condition = None
+
+        if user_id is not None:
+            condition = ItemsReviews.from_user_id == user_id
+        elif item_id is not None:
+            condition = ItemsReviews.item_id == item_id
+        stars_cte = union_all(
+            *[
+                select(literal(val).label(f"stars"))
+                for val in stars_values
+            ]
+        ).cte("stars_range")
+
+        statement = select(
+            stars_cte,
+            func.count(ItemsReviews.id)
+        ).outerjoin(
+            ItemsReviews, stars_cte.c.stars == ItemsReviews.stars
+        ).group_by(
+            stars_cte.c.stars
+        ).order_by(
+            stars_cte.c.stars.desc()
+        ).join(
+            Items
+        ).filter(and_(
+            condition,
+            Items.format == _format
+        ))
+        result = await self.session.execute(statement)
+        result = result.fetchall()
+        if not result:
+            return []
+        return [
+            ReviewsByStarsDTO(
+                star=res[0],
+                quantity=res[1]
+            )
+            for res in result
+        ]
+
+    async def get_items_reviews_by_user(
+            self, offset: int, limit: int, _format: str | None = None,
+            user_id: int | None = None, item_id: int | None = None
+    ):
+        criteria = {}
+        if user_id is not None:
+            criteria['from_user_id'] = user_id
+        if item_id is not None:
+            criteria['item_id'] = item_id
+
+        statement = select(
+            ItemsReviews
+        ).filter_by(
+            **criteria
+        ).options(
+            joinedload(ItemsReviews.from_user)
+        )
+        if _format is not None:
+            statement = statement.join(
+                Items
+            ).filter(
+                Items.format == _format
+            )
+
+        result = await self.session.execute(statement.offset(offset).limit(limit))
+        result = result.scalars().unique().all()
+        if not result:
+            return []
+        return [
+            ReviewDTO(
+                user=UserShortDTO(
+                    id=review.from_user.id,
+                    full_name=review.from_user.full_name,
+                    city=review.from_user.city,
+                    avatar=review.from_user.avatar.link if review.from_user.avatar else None,
+                ),
+                stars=review.stars,
+                text=review.text,
+                created_at=format_date(
+                    review.created_at, format="d MMMM y", locale="ru"
+                )
+            )
+            for review in result
+        ]

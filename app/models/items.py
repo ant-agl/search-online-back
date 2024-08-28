@@ -37,6 +37,7 @@ class PhotosDTO(BaseModel):
 class ItemShortDTO(BaseModel):
     id: int
     title: str
+    type: str
     price: float | None = None
     from_price: float | None = None
     to_price: float | None = None

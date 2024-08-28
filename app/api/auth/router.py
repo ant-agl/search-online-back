@@ -18,7 +18,7 @@ logger = logging.getLogger("AuthRouter")
 
 @router.post("/token", summary="Авторизация")
 async def login(
-        credentials: LoginRequest,
+        credentials: LoginRequest = Depends(),
         service: AuthTools = Depends(get_auth_service),
         redis: Redis = Depends(get_redis)
 ):
@@ -41,7 +41,7 @@ async def login(
 
 @router.post("/refresh", summary="Обновление токена доступа")
 async def refresh(
-        token: RefreshTokenRequest,
+        token: RefreshTokenRequest = Depends(),
         service: AuthTools = Depends(get_auth_service),
         redis: Redis = Depends(get_redis)
 ):

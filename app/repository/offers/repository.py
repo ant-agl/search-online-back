@@ -35,7 +35,7 @@ class OffersRepository(BaseRepository):
         await self.session.commit()
         return offer_id
 
-    async def get_offers_from_me(self, criteria: dict[str, int], offset: int, limit: int):
+    async def get_offers_by_criteria(self, criteria: dict[str, int], offset: int, limit: int):
         statement = select(
             Offers
         ).filter_by(
@@ -50,6 +50,8 @@ class OffersRepository(BaseRepository):
             joinedload(Offers.to_user)
         ).options(
             joinedload(Offers.details)
+        ).order_by(
+            Offers.created_at.desc()
         ).offset(offset).limit(limit)
         result = await self.session.execute(statement)
         result = result.scalars().unique().all()
@@ -75,6 +77,7 @@ class OffersRepository(BaseRepository):
                 item=ItemShortDTO(
                     id=offer.item.id,
                     title=offer.item.title,
+                    type=offer.item.format,
                     price=offer.item.price.price,
                     from_price=offer.item.price.from_price,
                     to_price=offer.item.price.to_price,
@@ -167,6 +170,7 @@ class OffersRepository(BaseRepository):
             item=ItemShortDTO(
                 id=offer.item.id,
                 title=offer.item.title,
+                type=offer.item.format,
                 price=offer.item.price.price,
                 from_price=offer.item.price.from_price,
                 to_price=offer.item.price.to_price,
@@ -252,3 +256,16 @@ class OffersRepository(BaseRepository):
             request_id=offer.request_id,
             status=offer.status.value,
         )
+
+    async def get_offers_by_item(self, item_id: int):
+        statement = select(
+            Offers
+        ).filter_by(
+            item_id=item_id
+        ).options(
+            joinedload(Offers.details)
+        )
+        result = await self.session.execute(statement)
+        result = result.scalars().unique().all()
+        if not result:
+            return []

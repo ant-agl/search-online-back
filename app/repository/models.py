@@ -3,8 +3,9 @@ import enum
 import uuid
 from typing import Annotated
 
-from sqlalchemy import BigInteger, TIMESTAMP, ForeignKey, String, UniqueConstraint
-from sqlalchemy.orm import DeclarativeBase, mapped_column, Mapped, relationship
+from sqlalchemy import BigInteger, TIMESTAMP, ForeignKey, String, UniqueConstraint, event
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import DeclarativeBase, mapped_column, Mapped, relationship, with_loader_criteria
 
 from app.repository.session import engine
 from app.utils.types import TypesOfUser, ContactType, LegalFormat, ItemType, OrdersStatus, ItemPublishStatus
@@ -65,10 +66,6 @@ class Cities(Base):
         back_populates="city"
     )
 
-    legal_address: Mapped[list["LegalAddress"]] = relationship(
-        back_populates="city"
-    )
-
     regions: Mapped[Regions] = relationship(
         back_populates="cities"
     )
@@ -116,7 +113,6 @@ class Users(Base):
 
     contacts: Mapped[list["UsersContacts"]] = relationship(
         back_populates="user",
-        lazy="dynamic"
     )
 
     legal_info: Mapped["LegalInfo"] = relationship(
@@ -164,6 +160,10 @@ class Users(Base):
 
     my_items_reviews: Mapped[list["ItemsReviews"]] = relationship(
         back_populates="from_user"
+    )
+
+    notifications: Mapped[list["Notifications"]] = relationship(
+        back_populates="user"
     )
 
     @property
@@ -267,6 +267,7 @@ class LegalInfo(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     type: Mapped[LegalFormat]
     company_name: Mapped[str] = mapped_column(String(255), nullable=True)
+    legal_address: Mapped[str] = mapped_column(String(255), nullable=True)
     inn: Mapped[str] = mapped_column(String(255), nullable=True)
     ogrn: Mapped[str] = mapped_column(String(255), nullable=True)
     ogrnip: Mapped[str] = mapped_column(String(255), nullable=True)
@@ -276,27 +277,6 @@ class LegalInfo(Base):
         back_populates="legal_info"
     )
 
-    address: Mapped["LegalAddress"] = relationship(
-        back_populates="legal_info"
-    )
-
-
-class LegalAddress(Base):
-    __tablename__ = 'legal_address'
-
-    id: Mapped[INT_PK]
-    legal_card_id: Mapped[int] = mapped_column(ForeignKey('legal_info.id', ondelete="CASCADE"))
-    city_id: Mapped[int] = mapped_column(ForeignKey('cities.id', ondelete="CASCADE"))
-    postal_code: Mapped[int] = mapped_column(nullable=True)
-    full_address: Mapped[str] = mapped_column(String(255), nullable=True)
-
-    legal_info: Mapped["LegalInfo"] = relationship(
-        back_populates="address"
-    )
-
-    city: Mapped[Cities] = relationship(
-        back_populates="legal_address"
-    )
 
 
 class Categories(Base):
@@ -316,6 +296,14 @@ class Categories(Base):
     requests: Mapped[list["RequestsCategory"]] = relationship(
         back_populates="category"
     )
+
+
+class SellersCategories(Base):
+    __tablename__ = 'sellers_categories'
+
+    id: Mapped[INT_PK]
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), unique=True)
+    category_id: Mapped[int] = mapped_column(ForeignKey("categories.id", ondelete="CASCADE"))
 
 
 class Items(Base):
@@ -584,8 +572,6 @@ class OffersTreads(Base):
     offer_id: Mapped[int] = mapped_column(ForeignKey("offers.id", ondelete="CASCADE"))
     from_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     to_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
-    text: Mapped[str] = mapped_column(String(255))
-    is_read: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[CREATED_AT]
     updated_at: Mapped[UPDATED_AT]
 
@@ -601,6 +587,27 @@ class OffersTreads(Base):
     to_user: Mapped[Users] = relationship(
         back_populates="receiver",
         foreign_keys=[to_user_id]
+    )
+#
+#
+# class ThreadsMessages(Base):
+#     __tablename__ = 'threads_messages'
+#
+#     id: Mapped[INT_PK]
+
+
+class Notifications(Base):
+    __tablename__ = 'notifications'
+
+    id: Mapped[INT_PK]
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    text: Mapped[str] = mapped_column(String(255))
+    address: Mapped[str] = mapped_column(String(255))
+    is_read: Mapped[bool] = mapped_column(default=False)
+    created_at: Mapped[CREATED_AT]
+
+    user: Mapped[Users] = relationship(
+        back_populates="notifications"
     )
 
 
@@ -641,7 +648,14 @@ class SellersReviews(Base):
 
     from_user: Mapped[Users] = relationship(
         back_populates="my_reviews",
-        foreign_keys=[from_user_id]
+        foreign_keys=[from_user_id],
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "seller_id", "from_user_id",
+            name="review_uniq_index",
+        ),
     )
 
 
@@ -663,6 +677,13 @@ class ItemsReviews(Base):
         back_populates="my_items_reviews",
     )
 
+    __table_args__ = (
+        UniqueConstraint(
+            "item_id", "from_user_id",
+            name="review_uniq_index_items",
+        ),
+    )
+
 
 class FAQs(Base):
     __tablename__ = 'faqs'
@@ -671,6 +692,33 @@ class FAQs(Base):
     question: Mapped[str] = mapped_column(String(255))
     answer: Mapped[str] = mapped_column(String(255))
 
+
+class UserReports(Base):
+    __tablename__ = "users_reports"
+
+    id: Mapped[INT_PK]
+    from_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    to_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    reason: Mapped[str] = mapped_column(String(255))
+    created_at: Mapped[CREATED_AT]
+
+    __table_args__ = (
+        UniqueConstraint(
+            "from_user_id", "to_user_id",
+            name="review_uniq_index_items",
+        ),
+    )
+
+
+class TechnicalSupports(Base):
+    __tablename__ = 'technical_supports'
+
+    id: Mapped[INT_PK]
+    contact_email: Mapped[str] = mapped_column(String(255))
+    text: Mapped[str] = mapped_column(String(255))
+    is_resolved: Mapped[bool] = mapped_column(default=False)
+    created_at: Mapped[CREATED_AT]
+    updated_at: Mapped[UPDATED_AT]
 
 
 async def create_tables():

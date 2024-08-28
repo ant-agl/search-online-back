@@ -14,9 +14,11 @@ from jose import jwt, JWTError
 from passlib.context import CryptContext
 from redis.asyncio import Redis
 
-from app.api.exceptions import UnauthorizedApiException, NotFoundApiException
+from app.api.exceptions import UnauthorizedApiException, NotFoundApiException, TokenExpiredApiException, \
+    LockedApiException
 from app.models.auth import TokenPayload
-from app.services.auth.exceptions import OverdueTokenException, DamagedTokenException, BadCredentialsException
+from app.services.auth.exceptions import OverdueTokenException, DamagedTokenException, BadCredentialsException, \
+    BlockedUserException
 from app.services.users.exceptions import UserNotFoundException
 from app.services.users.service import UserService
 from app.settings import settings
@@ -79,6 +81,8 @@ class Authenticator:
             raise DamagedTokenException()
         if exp_time < time.time():
             raise OverdueTokenException()
+        if token_data.get("is_blocked") is True:
+            raise BlockedUserException()
         return token_data
 
     @classmethod
@@ -86,8 +90,12 @@ class Authenticator:
         try:
             payload = cls.validate_access_token(token)
             return TokenPayload.model_validate(payload)
-        except (DamagedTokenException, OverdueTokenException, JWTError) as e:
+        except JWTError as e:
             raise UnauthorizedApiException(str(e))
+        except (OverdueTokenException, DamagedTokenException) as e:
+            raise TokenExpiredApiException(str(e))
+        except BlockedUserException as e:
+            raise LockedApiException(str(e))
 
     async def authenticate_user(self, login: str, password: str, redis: Redis):
         user_from_db = await self.__user_service.get_user_password(login)
