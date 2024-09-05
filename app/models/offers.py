@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 
 from app.models.items import ItemShortDTO
+from app.models.request import RequestDTO
 from app.models.users import UserShortDTO
 
 
@@ -22,7 +23,7 @@ class OfferDTO(BaseModel):
     status: str
     status_comment: str | None = None
     item: ItemShortDTO | None = None
-    request: None = None
+    request: RequestDTO | None = None
     price: float
     currency: str
     production: int | None = None

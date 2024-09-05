@@ -114,8 +114,8 @@ class OffersService(BaseService):
                     for photo in offer.item.photos
                 ] if offer.item.photos else [],
                 date_create=offer.item.date_created
-            ),
-            request=None,
+            ) if offer.item else None,
+            request=offer.request if offer.request else None,
             details=OfferDetails(
                 price=offer.price,
                 currency=offer.currency,
@@ -203,16 +203,12 @@ class OffersService(BaseService):
     ):
         offset = (page - 1) * limit
 
-        total = self._repository.get_user_offers_quantity(
+        total = await self._repository.get_user_offers_quantity(
             criteria
         )
 
-        offers = self._repository.get_offers_by_criteria(
+        offers = await self._repository.get_offers_by_criteria(
             criteria, offset, limit
-        )
-
-        result, total = await asyncio.gather(
-            offers, total
         )
         del offset
         meta = Meta(
@@ -221,7 +217,7 @@ class OffersService(BaseService):
             total_pages=(total + limit - 1) // limit,
             items_per_page=limit,
         )
-        if result is not None:
+        if offers is not None:
             result = [
                 ShortOfferResponseModel(
                     id=offer.id,
@@ -250,14 +246,14 @@ class OffersService(BaseService):
                             for photo in offer.item.photos
                         ] if offer.item.photos else [],
                         date_create=offer.item.date_created
-                    ),
-                    request=None,
+                    ) if offer.item else None,
+                    request=offer.request if offer.request else None,
                     date_create=offer.created_at
                 ).model_dump(
                     exclude_none=True,
                     exclude=set(exclude) if exclude else None
                 )
-                for offer in result
+                for offer in offers
             ]
         else:
             result = []

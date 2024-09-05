@@ -184,7 +184,7 @@ class OffersRepository(BaseRepository):
                 city=offer.item.location.city.name,
                 address=offer.item.location.address
             ) if offer.item else None,
-            request=None,  # TODO: Заполнить когда будут запросы
+            request=offer.request.to_dto() if offer.request else None,  # TODO: Заполнить когда будут запросы
             price=offer.details.price,
             currency=offer.details.currency,
             production=offer.details.production,

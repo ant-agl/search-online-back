@@ -1,5 +1,7 @@
 from pydantic import BaseModel
 
+from app.models.request import RequestDTO
+
 
 class UserShortResponse(BaseModel):
     id: int
@@ -76,7 +78,7 @@ class GetOfferResponse(BaseModel):
     to_user: UserShortResponse | None = None
     status: OfferStatus
     item: ItemShortResponse | None = None
-    request: None = None
+    request: RequestDTO | None = None
     details: OfferDetails
     date_create: str
 

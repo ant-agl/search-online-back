@@ -83,14 +83,11 @@ async def get_items_my_page(
         offers_service: OffersService = Depends(get_offers_service),
 ):
     try:
-        item = service.get_item_by_id(item_id, user.id)
-        offers = offers_service.get_offers_by_criteria(
+        item = await service.get_item_by_id(item_id, user.id)
+        offers = await offers_service.get_offers_by_criteria(
             {
                 "item_id": item_id, "status": "PENDING"
             }, offer_page, offer_limit, exclude=["item"]
-        )
-        item, offers = await asyncio.gather(
-            item, offers
         )
         return GetItemResponseSeller(
             id=item.id,

@@ -493,8 +493,12 @@ class Requests(Base):
         lazy="joined"
     )
 
+    clicks_quantity: Mapped[list["RequestsClicks"]] = relationship(
+        back_populates="request",
+        lazy="joined"
+    )
+
     def to_dto(self, extended: bool = False):
-        response = None
         if not extended:
             response = RequestDTO(
                 id=self.id,
@@ -528,7 +532,8 @@ class Requests(Base):
                 ),
                 updated_at=format_date(
                     self.updated_at, format="d MMMM y", locale="ru"
-                )
+                ),
+                clicks=len(self.clicks_quantity)
             )
         return response
 
@@ -549,6 +554,7 @@ class RequestsPhotos(Base):
         return RequestPhotos(
             id=self.id,
             link=self.link,
+            index=self.index
         )
 
 
@@ -615,7 +621,7 @@ class Offers(Base):
         back_populates="offers"
     )
 
-    request: Mapped[list["Requests"]] = relationship(
+    request: Mapped["Requests"] = relationship(
         back_populates="offers"
     )
 
@@ -728,6 +734,10 @@ class RequestsClicks(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     request_id: Mapped[int] = mapped_column(ForeignKey("requests.id", ondelete="CASCADE"))
     created_at: Mapped[CREATED_AT]
+
+    request: Mapped[Requests] = relationship(
+        back_populates="clicks_quantity",
+    )
 
     __table_args__ = (
         UniqueConstraint(

@@ -47,7 +47,7 @@ class RequestsRepository(BaseRepository):
         await self.session.commit()
         return request_id
 
-    async def get(self, request_id: int):
+    async def get(self, request_id: int,):
         statement = select(Requests).where(Requests.id == request_id).options(
             joinedload(Requests.category)
         )
@@ -102,7 +102,7 @@ class RequestsRepository(BaseRepository):
             for rs in result
         ]
 
-    async def total_requests_for_seller(self, categories: list[int] = None):
+    async def total_requests(self, categories: list[int] = None, creator_id: int = None):
         statement = select(
             func.count(Requests.id),
         )
@@ -111,6 +111,11 @@ class RequestsRepository(BaseRepository):
                 RequestsCategory, Requests.id == RequestsCategory.request_id
             ).filter(
                 RequestsCategory.category_id.in_(categories)
+            )
+
+        if creator_id:
+            statement = statement.filter_by(
+                creator_id=creator_id
             )
 
         result = await self.session.execute(statement)
@@ -126,3 +131,15 @@ class RequestsRepository(BaseRepository):
         result = await self.session.execute(statement)
         result = result.scalar_one_or_none()
         return result
+
+    async def get_request_creator(self, request_id: int):
+        statement = select(
+            Requests.creator_id
+        ).filter_by(
+            id=request_id
+        )
+        result = await self.session.execute(statement)
+        result = result.scalar_one_or_none()
+        return result
+
+

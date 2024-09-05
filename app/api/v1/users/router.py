@@ -9,7 +9,7 @@ from app.api.dependencies import get_auth_service, AuthTools, get_user_service, 
     get_cloud_service, get_items_service
 from app.api.exceptions import BaseApiException, BadRequestApiException, ErrorResponse, InternalServerError, \
     NotFoundApiException
-from app.api.v1.requests.responses import RegistryUserResponse
+from app.api.v1.users.responses import RegistryUserResponse
 from app.api.v1.users.requests import RegistryUserRequest, FullRegistryUserRequest, UpdateUserRequest, Contacts, \
     UpdateContactRequest, CompanyData, CreateSellerReviewRequest, ReportRequest
 from app.api.v1.users.responses import UserContacts
