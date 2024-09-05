@@ -1,8 +1,27 @@
+from pydantic import BaseModel
 
 
-class Poligone(object):
-    status = 9
+class Poligone(BaseModel):
+    id: int
+    name: str
 
 
-attr_name = getattr(Poligone(), "status")
-print(attr_name)
+class Poligones(BaseModel):
+    items: list[Poligone]
+
+
+obg = Poligones(
+    items=[
+        Poligone(id=9, name="str"),
+        Poligone(id=10, name="int"),
+    ]
+)
+
+obj = {
+    "items": [
+        {"id": 9, "name": "str"},
+        {"id": 10, "name": "int"},
+    ]
+}
+
+print(Poligones.model_validate(obj))

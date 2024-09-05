@@ -13,7 +13,7 @@ class UserCreateDTO(RegistryUserRequest):
 class UserFillingDTO(BaseModel):
     city_id: int
     type: TypesOfUser
-    main_category: int | None = None
+    main_category: list[int] | None = None
 
 
 class CompanyDataDTO(BaseModel):

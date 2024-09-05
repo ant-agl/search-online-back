@@ -13,7 +13,7 @@ from app.models.common import ReviewsByStarsDTO
 from app.models.users import UserCreateDTO, UserFillingDTO, ContactDTO, CompanyDataDTO, UserDTO, ContactsDTO, ReviewDTO, \
     UserShortDTO
 from app.repository.models import Users, UsersCredentials, UsersContacts, UsersCities, Cities, UserAvatar, UsersType, \
-    SellersReviews, UserReports, LegalInfo
+    SellersReviews, UserReports, LegalInfo, SellersCategories
 from app.repository.repository import BaseRepository
 from app.repository.users.exceptions import UserAlreadyExistsException, UserNotFoundException
 from app.utils.types import TypesOfUser
@@ -115,11 +115,21 @@ class UsersRepository(BaseRepository):
         ).values(
             full_filled=True
         )
+        details = []
         city = UsersCities(
             user_id=user_id,
             city_id=data.city_id
         )
-        self.session.add(city)
+        details.append(city)
+        if data.main_category:
+            user_categories = []
+            for d in data.main_category:
+                user_categories.append(SellersCategories(
+                    user_id=user_id,
+                    category_id=d
+                ))
+            details.extend(user_categories)
+        self.session.add_all(details)
         await self.session.execute(statement)
 
     async def add_type(self, user_id: int, _type: TypesOfUser) -> None:
@@ -407,5 +417,17 @@ class UsersRepository(BaseRepository):
         )
         await self.session.execute(statement)
         await self.session.commit()
+
+    async def get_user_categories(self, user_id: int):
+        statement = select(
+            SellersCategories.category_id
+        ).filter_by(
+            user_id=user_id
+        )
+        result = await self.session.execute(statement)
+        result = result.scalars().all()
+        if not result:
+            return None
+        return result
 
 

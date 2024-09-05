@@ -9,6 +9,7 @@ from app.api.v1.users.router import router as users_router
 from app.api.v1.items.router import router as items_router
 from app.api.v1.offers.router import router as offers_router
 from app.api.v1.requests.router import router as requests_router
+from app.api.v1.messages.router import router as messages_router
 from app.api.common.router import router as common_router
 from app.api.admin.router import router as admin_router
 from app.repository.models import create_tables
@@ -19,7 +20,7 @@ from app.settings import settings
 async def lifespan(_: FastAPI):
     settings.setup_architecture()
     settings.setup_logging()
-    await create_tables()
+    # await create_tables()
     yield
 
 
@@ -35,6 +36,7 @@ root_router.include_router(users_router, tags=["Пользователи"])
 root_router.include_router(items_router, tags=["Товары/услуги"])
 root_router.include_router(offers_router, tags=["Предложения"])
 root_router.include_router(requests_router, tags=["Запросы"])
+root_router.include_router(messages_router, tags=["Сообщения"])
 
 
 app.include_router(common_router, tags=["Общее"])

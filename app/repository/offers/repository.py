@@ -45,8 +45,6 @@ class OffersRepository(BaseRepository):
         ).options(
             joinedload(Offers.item)
         ).options(
-            joinedload(Offers.request)
-        ).options(
             joinedload(Offers.to_user)
         ).options(
             joinedload(Offers.details)

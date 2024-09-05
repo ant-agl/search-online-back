@@ -106,4 +106,7 @@ class CommonService(BaseService):
             raise UserNotFoundException()
         await self._repository.register_tech_request(body)
 
+    async def get_categories_what_depend_on(self, category_ids: list[int]):
+        return await self._repository.get_category_depends(category_ids)
+
 

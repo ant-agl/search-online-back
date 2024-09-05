@@ -62,7 +62,7 @@ class FullRegistryUserRequest(BaseModel):
     city_id: int
     type: TypesOfUser
     contacts: list[Contacts]
-    main_category: int | None = None
+    main_category: list[int] | None = None
     company_data: CompanyData | None = None
 
     @model_validator(mode="after")

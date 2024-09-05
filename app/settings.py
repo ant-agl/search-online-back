@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     S3_BUCKET: str | None = None  # Название бакета
     S3_URL: str | None = None  # URL хранилища
     S3_PUBLIC_URL: str | None = "https://test.s3.ru/"  # URL публичного доступа
+    MONGO_USER: str
+    MONGO_PWD: str
+    ENCODE_KEY: str
 
     model_config = SettingsConfigDict(env_file=".env")
 
@@ -46,6 +49,14 @@ class Settings(BaseSettings):
     @property
     def db_dsn(self):
         return f"mysql+aiomysql://{self.DB_DSN}?charset=utf8mb4"
+
+    @property
+    def mongo_dsn(self):
+        return f"mongodb://{self.MONGO_USER}:{self.MONGO_PWD}@localhost:27017/messenger_db?authSource=messenger_db"
+
+    @property
+    def encode_key(self):
+        return f"{self.ENCODE_KEY}"
 
     @staticmethod
     def setup_logging() -> None:

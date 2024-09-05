@@ -1,6 +1,6 @@
 from abc import ABC
 
-from sqlalchemy import select, update, delete
+from sqlalchemy import select, update, delete, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -141,4 +141,22 @@ class CommonRepository(BaseRepository):
         )
         self.session.add(request)
         await self.session.commit()
+
+    async def get_category_depends(self, category_ids: list[int]):
+        statement = select(
+            Categories
+        ).where(
+            or_(
+                Categories.id.in_(category_ids),
+                Categories.depend_on.in_(category_ids)
+            )
+        )
+        result = await self.session.execute(statement)
+        result = result.scalars().all()
+        if not result:
+            return None
+        return [
+            rs.id
+            for rs in result
+        ]
 

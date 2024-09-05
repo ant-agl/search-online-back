@@ -3,10 +3,14 @@ import enum
 import uuid
 from typing import Annotated
 
+from babel.dates import format_date
 from sqlalchemy import BigInteger, TIMESTAMP, ForeignKey, String, UniqueConstraint, event
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import DeclarativeBase, mapped_column, Mapped, relationship, with_loader_criteria
 
+from app.api.common.responses import Category
+from app.models.request import RequestDTO, RequestPhotos, RequestCategory
+from app.models.users import UserShortDTO
 from app.repository.session import engine
 from app.utils.types import TypesOfUser, ContactType, LegalFormat, ItemType, OrdersStatus, ItemPublishStatus
 
@@ -137,14 +141,8 @@ class Users(Base):
         foreign_keys="Offers.to_user_id",
     )
 
-    sender: Mapped["OffersTreads"] = relationship(
-        back_populates="from_user",
-        foreign_keys="OffersTreads.from_user_id",
-    )
-
-    receiver: Mapped["OffersTreads"] = relationship(
-        back_populates="to_user",
-        foreign_keys="OffersTreads.to_user_id",
+    threads: Mapped[list["ThreadsParticipants"]] = relationship(
+        back_populates="user",
     )
 
     reviews: Mapped[list["SellersReviews"]] = relationship(
@@ -164,6 +162,10 @@ class Users(Base):
 
     notifications: Mapped[list["Notifications"]] = relationship(
         back_populates="user"
+    )
+
+    main_category: Mapped["SellersCategories"] = relationship(
+        back_populates="user",
     )
 
     @property
@@ -186,6 +188,14 @@ class Users(Base):
             tp.type.value
             for tp in self.type
         ]
+
+    def to_short_dto(self):
+        return UserShortDTO(
+            id=self.id,
+            full_name=self.full_name,
+            city=self.city,
+            avatar=self.avatar.link if self.avatar else None,
+        )
 
 
 class UsersType(Base):
@@ -278,7 +288,6 @@ class LegalInfo(Base):
     )
 
 
-
 class Categories(Base):
     __tablename__ = 'categories'
 
@@ -297,6 +306,10 @@ class Categories(Base):
         back_populates="category"
     )
 
+    sellers_categories: Mapped[list["SellersCategories"]] = relationship(
+        back_populates="category"
+    )
+
 
 class SellersCategories(Base):
     __tablename__ = 'sellers_categories'
@@ -304,6 +317,13 @@ class SellersCategories(Base):
     id: Mapped[INT_PK]
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), unique=True)
     category_id: Mapped[int] = mapped_column(ForeignKey("categories.id", ondelete="CASCADE"))
+
+    user: Mapped[Users] = relationship(
+        back_populates="main_category"
+    )
+    category: Mapped[Categories] = relationship(
+        back_populates="sellers_categories"
+    )
 
 
 class Items(Base):
@@ -446,7 +466,8 @@ class Requests(Base):
     updated_at: Mapped[UPDATED_AT]
 
     user: Mapped[Users] = relationship(
-        back_populates="requests"
+        back_populates="requests",
+        lazy="joined"
     )
 
     offers: Mapped["Offers"] = relationship(
@@ -454,16 +475,62 @@ class Requests(Base):
     )
 
     photos: Mapped[list["RequestsPhotos"]] = relationship(
-        back_populates="request"
+        back_populates="request",
+        lazy="joined"
     )
 
     price: Mapped["RequestsPrice"] = relationship(
-        back_populates="request"
+        back_populates="request",
+        lazy="joined"
     )
 
     category: Mapped["RequestsCategory"] = relationship(
         back_populates="request"
     )
+
+    production_time: Mapped["RequestsProductionTime"] = relationship(
+        back_populates="request",
+        lazy="joined"
+    )
+
+    def to_dto(self, extended: bool = False):
+        response = None
+        if not extended:
+            response = RequestDTO(
+                id=self.id,
+                creator=self.user.to_short_dto(),
+                title=self.title,
+                max_price=self.price.max_price,
+                max_days=self.production_time.max_days,
+                photos=[
+                    ph.to_dto()
+                    for ph in self.photos
+                ] if self.photos is not None else [],
+                created_at=format_date(
+                    self.created_at, format="d MMMM y", locale="ru"
+                )
+            )
+        else:
+            response = RequestDTO(
+                id=self.id,
+                creator=self.user.to_short_dto(),
+                title=self.title,
+                description=self.description,
+                max_price=self.price.max_price,
+                max_days=self.production_time.max_days,
+                photos=[
+                    ph.to_dto()
+                    for ph in self.photos
+                ] if self.photos is not None else [],
+                category=self.category.to_dto(),
+                created_at=format_date(
+                    self.created_at, format="d MMMM y", locale="ru"
+                ),
+                updated_at=format_date(
+                    self.updated_at, format="d MMMM y", locale="ru"
+                )
+            )
+        return response
 
 
 class RequestsPhotos(Base):
@@ -478,6 +545,12 @@ class RequestsPhotos(Base):
         back_populates="photos"
     )
 
+    def to_dto(self):
+        return RequestPhotos(
+            id=self.id,
+            link=self.link,
+        )
+
 
 class RequestsCategory(Base):
     __tablename__ = 'request_category'
@@ -490,8 +563,15 @@ class RequestsCategory(Base):
     )
 
     category: Mapped[Categories] = relationship(
-        back_populates="requests"
+        back_populates="requests",
+        lazy="joined"
     )
+
+    def to_dto(self):
+        return RequestCategory(
+            id=self.category.id,
+            value=self.category.value
+        )
 
 
 class RequestsPrice(Base):
@@ -499,14 +579,23 @@ class RequestsPrice(Base):
 
     id: Mapped[INT_PK]
     request_id: Mapped[int] = mapped_column(ForeignKey("requests.id", ondelete="CASCADE"))
-    price: Mapped[float] = mapped_column(nullable=True)
+    max_price: Mapped[float] = mapped_column(nullable=True)
     currency: Mapped[str] = mapped_column(String(5), default="RUB")
-    range: Mapped[bool] = mapped_column(nullable=True)
-    from_price: Mapped[float] = mapped_column(nullable=True)
-    to_price: Mapped[float] = mapped_column(nullable=True)
 
     request: Mapped[Requests] = relationship(
         back_populates="price"
+    )
+
+
+class RequestsProductionTime(Base):
+    __tablename__ = 'requests_production_time'
+
+    id: Mapped[INT_PK]
+    request_id: Mapped[int] = mapped_column(ForeignKey("requests.id", ondelete="CASCADE"))
+    max_days: Mapped[int] = mapped_column(nullable=True)
+
+    request: Mapped[Requests] = relationship(
+        back_populates="production_time"
     )
 
 
@@ -534,7 +623,7 @@ class Offers(Base):
         back_populates="offer"
     )
 
-    threads: Mapped[list["OffersTreads"]] = relationship(
+    threads: Mapped[list["OffersThreads"]] = relationship(
         back_populates="offer"
     )
 
@@ -565,35 +654,36 @@ class OffersDetails(Base):
     )
 
 
-class OffersTreads(Base):
-    __tablename__ = 'offers_treads'
+class OffersThreads(Base):
+    __tablename__ = 'offers_threads'
 
     id: Mapped[INT_PK]
     offer_id: Mapped[int] = mapped_column(ForeignKey("offers.id", ondelete="CASCADE"))
-    from_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
-    to_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     created_at: Mapped[CREATED_AT]
     updated_at: Mapped[UPDATED_AT]
 
     offer: Mapped[Offers] = relationship(
         back_populates="threads"
     )
-
-    from_user: Mapped[Users] = relationship(
-        back_populates="sender",
-        foreign_keys=[from_user_id]
+    participants: Mapped[list["ThreadsParticipants"]] = relationship(
+        back_populates="thread"
     )
 
-    to_user: Mapped[Users] = relationship(
-        back_populates="receiver",
-        foreign_keys=[to_user_id]
+
+class ThreadsParticipants(Base):
+    __tablename__ = 'threads_participants'
+
+    id: Mapped[INT_PK]
+    thread_id: Mapped[int] = mapped_column(ForeignKey("offers_threads.id", ondelete="CASCADE"))
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+
+    user: Mapped[Users] = relationship(
+        back_populates="threads"
     )
-#
-#
-# class ThreadsMessages(Base):
-#     __tablename__ = 'threads_messages'
-#
-#     id: Mapped[INT_PK]
+
+    thread: Mapped[OffersThreads] = relationship(
+        back_populates="participants"
+    )
 
 
 class Notifications(Base):
@@ -626,6 +716,22 @@ class ItemsClicks(Base):
     __table_args__ = (
         UniqueConstraint(
             "item_id", "user_id",
+            name="click_uniq_index",
+        ),
+    )
+
+
+class RequestsClicks(Base):
+    __tablename__ = "request_clicks"
+
+    id: Mapped[INT_PK]
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    request_id: Mapped[int] = mapped_column(ForeignKey("requests.id", ondelete="CASCADE"))
+    created_at: Mapped[CREATED_AT]
+
+    __table_args__ = (
+        UniqueConstraint(
+            "request_id", "user_id",
             name="click_uniq_index",
         ),
     )

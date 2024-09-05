@@ -264,6 +264,21 @@ class OffersService(BaseService):
 
         return result, meta
 
+    async def offer_participants(self, offer_id: int, user_id: int):
+        # participants = await asyncio.gather(
+        #     self._repository.get_offer_sender(offer_id),
+        #     self._repository.get_offer_receiver(offer_id)
+        # )
+        participants = [
+            await self._repository.get_offer_sender(offer_id),
+            await self._repository.get_offer_receiver(offer_id)
+        ]
+        if not participants:
+            raise OfferNotFoundException(offer_id)
+        if user_id not in participants:
+            raise OfferNotBelongYouException(offer_id)
+
+        return participants
 
 
 

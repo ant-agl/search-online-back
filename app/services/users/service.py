@@ -57,6 +57,7 @@ class UserService(BaseService):
                 address=body.company_data.address,
                 description=body.company_data.description,
             )
+
         profile_data = UserFillingDTO(
             city_id=body.city_id,
             type=body.type,
@@ -338,6 +339,9 @@ class UserService(BaseService):
             return True
         except IntegrityError:
             return True
+
+    async def get_my_categories(self, user_id: int):
+        return await self._repository.get_user_categories(user_id)
 
 
 
