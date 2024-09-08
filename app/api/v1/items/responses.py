@@ -39,6 +39,8 @@ class ItemShortResponse(BaseModel):
     location: LocationResponse | None = None
     photos: list[ItemPhotosResponse]
     date_create: str
+    rating: float
+    reviews_quantity: int
 
 
 class GetItemsResponse(BaseModel):

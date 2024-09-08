@@ -100,7 +100,7 @@ class OffersService(BaseService):
                 title=offer.item.title,
                 status=offer.item.status,
                 price=PriceResponse(
-                    fix_price=offer.item.price,
+                    fix_price=offer.item.fix_price,
                     from_price=offer.item.from_price,
                     to_price=offer.item.to_price,
                     currency=offer.item.currency
@@ -117,7 +117,7 @@ class OffersService(BaseService):
             ) if offer.item else None,
             request=offer.request if offer.request else None,
             details=OfferDetails(
-                price=offer.price,
+                price=offer.fix_price,
                 currency=offer.currency,
                 production=offer.production,
                 comment=offer.comment
@@ -232,7 +232,7 @@ class OffersService(BaseService):
                         title=offer.item.title,
                         status=offer.item.status,
                         price=PriceResponse(
-                            fix_price=offer.item.price,
+                            fix_price=offer.item.fix_price,
                             from_price=offer.item.from_price,
                             to_price=offer.item.to_price,
                             currency=offer.item.currency

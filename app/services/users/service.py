@@ -50,7 +50,6 @@ class UserService(BaseService):
     async def fill_profile(self, user_id: int, body: FullRegistryUserRequest):
         company_data = None
         if body.type.value == "seller":
-            # TODO: Логика проверки данных компании
             company_data = CompanyDataDTO(
                 legal_format=body.company_data.legal_format,
                 company_name=body.company_data.company_name,
@@ -342,6 +341,9 @@ class UserService(BaseService):
 
     async def get_my_categories(self, user_id: int):
         return await self._repository.get_user_categories(user_id)
+
+    async def get_user_city_id(self, user_id: int):
+        return await self._repository.get_city_id(user_id)
 
 
 

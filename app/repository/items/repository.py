@@ -1,10 +1,10 @@
 from babel.dates import format_date
-from sqlalchemy import select, delete, func, or_, and_, union_all, literal
+from sqlalchemy import select, delete, func, or_, and_, union_all, literal, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, with_loader_criteria, selectinload, contains_eager
 
 from app.api.common.responses import Category
-from app.api.v1.items.requests import Location
+from app.api.v1.items.requests import Location, GetCards
 from app.models.common import CategoryShortDTO
 from app.models.items import ItemCreateDTO, ItemPriceDTO, ItemProductionDTO, ItemShortDTO, PhotosDTO, ItemFullDTO, \
     Seller, OffersDTO, OfferSenderDTO
@@ -167,7 +167,7 @@ class ItemsRepository(BaseRepository):
                 id=item.id,
                 title=item.title,
                 type=item.format,
-                price=item.price.price,
+                price=item.price.fix_price,
                 from_price=item.price.from_price,
                 to_price=item.price.to_price,
                 currency=item.price.currency,
@@ -185,6 +185,8 @@ class ItemsRepository(BaseRepository):
                 date_created=format_date(
                     item.created_at, format="d MMMM y", locale="ru"
                 ),
+                rating=item.rating,
+                reviews_quantity=item.reviews_quantity
             )
             for item in result
         ]
@@ -220,7 +222,7 @@ class ItemsRepository(BaseRepository):
             id=item.id,
             title=item.title,
             type=item.format,
-            price=item.price.price,
+            fix_price=item.price.fix_price,
             from_price=item.price.from_price,
             to_price=item.price.to_price,
             currency=item.price.currency,
@@ -236,6 +238,8 @@ class ItemsRepository(BaseRepository):
             city=item.location.city.name,
             address=item.location.address,
             date_created=format_date(item.created_at, format="d MMMM y", locale="ru"),
+            rating=item.rating,
+            reviews_quantity=item.reviews_quantity,
             from_time=item.production.from_time if item.production else None,
             to_time=item.production.to_time if item.production else None,
             description=item.description,
@@ -409,3 +413,250 @@ class ItemsRepository(BaseRepository):
             )
             for review in result
         ]
+
+    @staticmethod
+    def statement_filter_constructor(
+            body: GetCards
+    ):
+        filters = [
+            Items.format == body.type.value,
+            Items.status == "approved"
+        ]
+        if body.category_id is not None:
+            filters.append(
+                Items.category.has(ItemsCategory.category_id == body.category_id)
+            )
+        if body.from_days is not None:
+            filters.append(
+                Items.production.has(ProductionTime.from_time == body.from_days)
+            )
+        if body.to_days is not None:
+            filters.append(
+                Items.production.has(ProductionTime.to_time == body.to_days)
+            )
+        if body.from_price is not None:
+            filters.append(
+                or_(
+                    Items.price.has(ItemsPrice.from_price >= body.from_price),
+                    Items.price.has(ItemsPrice.fix_price >= body.from_price),
+                )
+            )
+        if body.to_price is not None:
+            filters.append(
+                or_(
+                    Items.price.has(ItemsPrice.to_price <= body.to_price),
+                    Items.price.has(ItemsPrice.fix_price <= body.to_price),
+                )
+            )
+        if body.city_id is not None:
+            filters.append(
+                Items.location.has(
+                    ItemsLocations.city_id == body.city_id
+                )
+            )
+        if body.q is not None:
+            filters.append(
+                Items.title.ilike(f"%{body.q}%")
+            )
+
+        return filters
+
+    async def get_total_items_by_criteria(self, body: GetCards, offset: int, page_limit: int):
+        statement = select(
+            func.count(Items.id)
+        )
+        filters = self.statement_filter_constructor(body)
+
+        statement = statement.filter(
+            and_(*filters)
+        )
+
+        result = await self.session.execute(statement)
+        result = result.scalar_one_or_none()
+        return result
+
+    async def get_items_by_criteria(self, body: GetCards, offset: int, page_limit: int):
+        statement = select(
+            Items
+        ).order_by(
+            Items.created_at.desc()
+        )
+        filters = self.statement_filter_constructor(body)
+        statement = statement.filter(
+            and_(*filters)
+        ).offset(offset).limit(page_limit)
+
+        result = await self.session.execute(statement)
+        result = result.scalars().unique().all()
+        if not result:
+            return []
+        return [
+            ItemShortDTO(
+                id=item.id,
+                title=item.title,
+                type=item.format,
+                price=item.price.fix_price,
+                from_price=item.price.from_price,
+                to_price=item.price.to_price,
+                currency=item.price.currency,
+                photos=[
+                    PhotosDTO(
+                        id=photo.id,
+                        link=photo.link,
+                        index=photo.index
+                    )
+                    for photo in item.photos
+                ] if item.photos else [],
+                status=item.status.value,
+                city=item.location.city.name,
+                address=item.location.address,
+                date_created=format_date(
+                    item.created_at, format="d MMMM y", locale="ru"
+                ),
+                rating=item.rating,
+                reviews_quantity=item.reviews_quantity
+            )
+            for item in result
+        ]
+
+    async def update_item_info(self, item_id: int, new_data: dict):
+        statement = update(
+            Items
+        ).filter_by(
+            id=item_id,
+        ).values(
+            **new_data
+        )
+        await self.session.execute(statement)
+        await self.session.commit()
+
+    async def update_item_price(self, item_id: int, new_data: dict):
+        statement = update(
+            ItemsPrice
+        ).filter_by(
+            item_id=item_id,
+        ).values(
+            **new_data
+        )
+        await self.session.execute(statement)
+        await self.session.commit()
+
+    async def update_item_production_time(self, item_id: int, new_data: dict):
+        statement = update(
+            ProductionTime
+        ).filter_by(
+            item_id=item_id,
+        ).values(
+            **new_data
+        )
+        await self.session.execute(statement)
+        await self.session.commit()
+
+    async def update_item_location(self, item_id: int, new_data: dict):
+        statement = update(
+            ItemsLocations
+        ).filter_by(
+            item_id=item_id,
+        ).values(
+            **new_data
+        )
+        await self.session.execute(statement)
+        await self.session.commit()
+
+    async def update_category(self, item_id: int, category_id: int):
+        statement = update(
+            ItemsCategory
+        ).filter_by(
+            item_id=item_id,
+        ).values(
+            category_id=category_id
+        )
+        await self.session.execute(statement)
+        await self.session.commit()
+
+    async def add_review(self, user_id: int, item_id: int, data: dict):
+        review = ItemsReviews(
+            item_id=item_id,
+            from_user_id=user_id,
+            **data
+        )
+        self.session.add(review)
+        await self.session.flush()
+        revies_id = review.id
+        await self.session.commit()
+
+    async def delete_review(self, item_id: int, user_id: int, review_id: int):
+        statement = delete(
+            ItemsReviews
+        ).filter_by(
+            item_id=item_id,
+            from_user_id=user_id,
+            id=review_id
+        )
+        await self.session.execute(statement)
+        await self.session.commit()
+
+    async def get_reviews(self, item_id: int, offset: int, page_limit: int, stars: int = None):
+        statement = select(
+            ItemsReviews
+        ).options(
+            joinedload(ItemsReviews.from_user)
+        ).filter_by(
+            item_id=item_id,
+        )
+        if stars is not None:
+            statement = statement.filter_by(stars=stars)
+
+        statement = statement.order_by(
+            ItemsReviews.created_at.desc()
+        ).offset(offset).limit(page_limit)
+
+        reviews = await self.session.execute(statement)
+        reviews = reviews.scalars().unique().all()
+        if not reviews:
+            return []
+        return [
+            ReviewDTO(
+                user=rw.from_user.to_short_dto(),
+                stars=rw.stars,
+                text=rw.text,
+                created_at=format_date(
+                    rw.created_at, format="d MMMM y", locale="ru"
+                )
+            )
+            for rw in reviews
+        ]
+
+    async def get_reviews_by_stars(self, item_id):
+        stars_cte = union_all(
+                *[
+                    select(literal(val).label(f"stars"))
+                    for val in [1.0, 2.0, 3.0, 4.0, 5.0]
+                ]
+        ).cte("stars_range")
+
+        statement = select(
+            stars_cte,
+            func.count(ItemsReviews.id)
+        ).outerjoin(
+            ItemsReviews, stars_cte.c.stars == ItemsReviews.stars
+        ).group_by(
+            stars_cte.c.stars
+        ).order_by(
+            stars_cte.c.stars.desc()
+        ).filter(
+            ItemsReviews.item_id == item_id
+        )
+        result = await self.session.execute(statement)
+        result = result.fetchall()
+        if not result:
+            return []
+        return [
+            ReviewsByStarsDTO(
+                star=res[0],
+                quantity=res[1]
+            )
+            for res in result
+        ]
+
+

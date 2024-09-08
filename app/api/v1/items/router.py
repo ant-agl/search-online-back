@@ -5,10 +5,11 @@ from typing import Union
 from fastapi import APIRouter, Depends, UploadFile, BackgroundTasks, Query
 from starlette.responses import JSONResponse
 
-from app.api.dependencies import get_items_service, get_common_service, get_cloud_service, get_offers_service
+from app.api.dependencies import get_items_service, get_common_service, get_cloud_service, get_offers_service, \
+    get_user_service
 from app.api.exceptions import ForbiddenApiException, UnprocessableApiException, InternalServerError, \
     NotFoundApiException, BadRequestApiException, ErrorResponse
-from app.api.v1.items.requests import CreateItem, UpdateItem, GetCards
+from app.api.v1.items.requests import CreateItem, UpdateItem, GetCards, PostItemReview
 from app.api.v1.items.responses import GetItemsResponse, Meta, GetItemResponse, GetItemResponseSeller, PriceResponse, \
     LocationResponse, ItemPhotosResponse, ProductionTimeResponse, SellerResponse
 from app.models.auth import TokenPayload
@@ -17,9 +18,10 @@ from app.services.cloud_service import CloudService
 from app.services.common.exceptions import CategoryNotFoundException, CityNotFoundException, CityNotActiveException
 from app.services.common.service import CommonService
 from app.services.items.exceptions import MinPriceOverMaxPriceException, CategoryDisabledException, \
-    CategoryOnModeratingException, ItemNotFoundException, PhotoNotFoundException
+    CategoryOnModeratingException, ItemNotFoundException, PhotoNotFoundException, ItemException
 from app.services.items.service import ItemsService
 from app.services.offers.service import OffersService
+from app.services.users.service import UserService
 from app.utils.types import ItemType
 
 router = APIRouter(
@@ -32,17 +34,23 @@ logger = logging.getLogger("ItemsRouter")
 @router.post(
     "/cards", summary="Все предложения",
     status_code=200, response_model=Union[GetItemsResponse, ErrorResponse],
-    deprecated=True
 )
 async def get_items_pages(
         body: GetCards,
         page: int = Query(1, ge=1),
         page_limit: int = Query(50, ge=1, le=100),
-        _: TokenPayload = Depends(Authenticator.get_current_user),
+        user: TokenPayload = Depends(Authenticator.get_current_user),
         service: ItemsService = Depends(get_items_service),
-        common_service: CommonService = Depends(get_common_service)
+        user_service: UserService = Depends(get_user_service)
 ):
-    ...
+    try:
+        result = await service.get_filtered_items(
+            body, page, page_limit, user.id, user_service
+        )
+        return result
+    except Exception as e:
+        logger.exception(e)
+        raise InternalServerError(str(e))
 
 
 @router.get(
@@ -96,7 +104,7 @@ async def get_items_my_page(
             description=item.description,
             status=item.status,
             price=PriceResponse(
-                fix_price=item.price,
+                fix_price=item.fix_price,
                 from_price=item.from_price,
                 to_price=item.to_price,
                 currency=item.currency
@@ -116,6 +124,8 @@ async def get_items_my_page(
             ),
             clicks=item.clicks,
             date_create=item.date_created,
+            rating=item.rating,
+            reviews_quantity=item.reviews_quantity,
             offers=offers[0],
             meta=offers[1]
         ).model_dump(exclude_none=True)
@@ -191,7 +201,7 @@ async def get_item_card(
             description=item.description,
             status=item.status,
             price=PriceResponse(
-                fix_price=item.price,
+                fix_price=item.fix_price,
                 from_price=item.from_price,
                 to_price=item.to_price,
                 currency=item.currency
@@ -210,7 +220,10 @@ async def get_item_card(
                 to_days=item.to_time,
             ),
             clicks=item.clicks,
+            rating=item.rating,
+            reviews_quantity=item.reviews_quantity,
             date_create=item.date_created,
+
         )
     except ItemNotFoundException as e:
         raise NotFoundApiException(str(e))
@@ -220,14 +233,15 @@ async def get_item_card(
 
 
 @router.patch(
-    "/card/{item_id}", status_code=201,
-    summary="Обновление товара/услуги", deprecated=True
+    "/card/{item_id}", status_code=204,
+    summary="Обновление товара/услуги"
 )
 async def update_item(
         item_id: int,
         body: UpdateItem,
         user: TokenPayload = Depends(Authenticator.get_current_user),
         service: ItemsService = Depends(get_items_service),
+        common_service: CommonService = Depends(get_common_service)
 ):
     if not user.full_filled:
         raise UnprocessableApiException(
@@ -238,15 +252,21 @@ async def update_item(
             "Создавать товары или услуги могут только продавцы"
         )
     try:
-        result = await service.update_item(item_id, body)
-        return JSONResponse(
-            content=result,
-            status_code=201
+        await service.update_item(
+            user.id, item_id, body, common_service
         )
     except MinPriceOverMaxPriceException as e:
         raise UnprocessableApiException(str(e))
-    except ItemNotFoundException as e:
+    except (
+            ItemNotFoundException, CityNotFoundException,
+            CategoryNotFoundException
+    ) as e:
         raise NotFoundApiException(str(e))
+    except (
+            ItemException, CityNotActiveException,
+            CategoryDisabledException, CategoryOnModeratingException
+    ) as e:
+        raise BadRequestApiException(str(e))
     except Exception as e:
         logger.exception(e)
         raise InternalServerError(str(e))
@@ -364,35 +384,71 @@ async def delete_item(
 
 @router.post(
     "/card/{item_id}/reviews", status_code=201,
-    summary="Оставить отзыв о товаре/услуге", deprecated=True
+    summary="Оставить отзыв о товаре/услуге"
 )
-async def create_item_review():
+async def create_item_review(
+        item_id: int,
+        body: PostItemReview,
+        user: TokenPayload = Depends(Authenticator.get_current_user),
+        service: ItemsService = Depends(get_items_service),
+):
     try:
-        ...
+        result = await service.add_review(user.id, item_id, body)
+        return JSONResponse(
+            content={
+                "success": result
+            }, status_code=201
+        )
+    except ItemNotFoundException as e:
+        raise NotFoundApiException(str(e))
+    except ItemException as e:
+        raise BadRequestApiException(str(e))
     except Exception as e:
         logger.exception(e)
         raise InternalServerError(str(e))
 
 
 @router.get(
-    "/card/{item_id}/reviews", status_code=201,
-    summary="Посмотреть отзывы о товаре/услуге", deprecated=True
+    "/card/{item_id}/reviews", status_code=200,
+    summary="Посмотреть отзывы о товаре/услуге",
 )
-async def create_item_review():
+async def create_item_review(
+        item_id: int,
+        page: int = Query(1, ge=1),
+        page_limit: int = Query(50, ge=1, le=100),
+        by_stars: int = None,
+        user: TokenPayload = Depends(Authenticator.get_current_user),
+        service: ItemsService = Depends(get_items_service),
+):
     try:
-        ...
+        return await service.get_reviews(
+            item_id, page, page_limit, by_stars
+        )
+    except ItemNotFoundException as e:
+        raise NotFoundApiException(str(e))
+    except ItemException as e:
+        raise BadRequestApiException(str(e))
     except Exception as e:
         logger.exception(e)
         raise InternalServerError(str(e))
 
 
 @router.delete(
-    "/card/{item_id}/reviews/{review_id}", status_code=201,
-    summary="Удалить отзыв о товаре/услуге", deprecated=True
+    "/card/{item_id}/reviews/{review_id}", status_code=204,
+    summary="Удалить отзыв о товаре/услуге",
 )
-async def create_item_review():
+async def create_item_review(
+        item_id: int,
+        review_id: int,
+        user: TokenPayload = Depends(Authenticator.get_current_user),
+        service: ItemsService = Depends(get_items_service),
+):
     try:
-        ...
+        await service.delete_review(item_id, user.id, review_id)
+    except ItemNotFoundException as e:
+        raise NotFoundApiException(str(e))
+    except ItemException as e:
+        raise BadRequestApiException(str(e))
     except Exception as e:
         logger.exception(e)
         raise InternalServerError(str(e))

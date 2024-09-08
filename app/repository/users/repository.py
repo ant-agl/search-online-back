@@ -430,4 +430,14 @@ class UsersRepository(BaseRepository):
             return None
         return result
 
+    async def get_city_id(self, user_id: int):
+        statement = select(
+            UsersCities.city_id
+        ).filter_by(
+            user_id=user_id
+        )
+        result = await self.session.execute(statement)
+        result = result.scalar_one_or_none()
+        return result
+
 

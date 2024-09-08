@@ -76,7 +76,7 @@ class OffersRepository(BaseRepository):
                     id=offer.item.id,
                     title=offer.item.title,
                     type=offer.item.format,
-                    price=offer.item.price.price,
+                    price=offer.item.price.fix_price,
                     from_price=offer.item.price.from_price,
                     to_price=offer.item.price.to_price,
                     currency=offer.item.price.currency,
@@ -89,7 +89,7 @@ class OffersRepository(BaseRepository):
                         for photo in offer.item.photos
                     ] if offer.item.photos else [],
                 ) if offer.item else None,
-                request=None,  # TODO: Заполнить когда будут запросы
+                request=offer.request.to_dto() if offer.request else None,
                 price=offer.details.price,
                 currency=offer.details.currency,
                 production=offer.details.production,
@@ -169,7 +169,7 @@ class OffersRepository(BaseRepository):
                 id=offer.item.id,
                 title=offer.item.title,
                 type=offer.item.format,
-                price=offer.item.price.price,
+                price=offer.item.price.fix_price,
                 from_price=offer.item.price.from_price,
                 to_price=offer.item.price.to_price,
                 currency=offer.item.price.currency,
@@ -184,7 +184,7 @@ class OffersRepository(BaseRepository):
                 city=offer.item.location.city.name,
                 address=offer.item.location.address
             ) if offer.item else None,
-            request=offer.request.to_dto() if offer.request else None,  # TODO: Заполнить когда будут запросы
+            request=offer.request.to_dto() if offer.request else None,
             price=offer.details.price,
             currency=offer.details.currency,
             production=offer.details.production,

@@ -47,15 +47,24 @@ class CreateItem(BaseModel):
     comment: str | None = None
 
 
-class UpdateItem(BaseModel):
+class UpdateItemMainInfo(BaseModel):
     title: str | None = None
     description: str | None = None
-    price: PriceRange | None = None
-    is_delivered: bool = Form(False)
-    production_time: ProductionTime | None = None
+    is_delivered: bool = False
+    comment: str | None = None
+
+
+class UpdateItemLocation(BaseModel):
     city_id: int | None = None
     address: str | None = None
-    comment: str | None = None
+
+
+class UpdateItem(BaseModel):
+    info: UpdateItemMainInfo | None = None
+    price: PriceRange | None = None
+    production_time: ProductionTime | None = None
+    location: UpdateItemLocation
+    category_id: int | None = None
 
 
 class GetCards(BaseModel):
@@ -67,3 +76,8 @@ class GetCards(BaseModel):
     from_days: int | None = None
     to_days: int | None = None
     q: str | None = None
+
+
+class PostItemReview(BaseModel):
+    stars: float
+    text: str | None = None

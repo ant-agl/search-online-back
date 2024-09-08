@@ -633,6 +633,23 @@ typer = ">=0.12.3"
 standard = ["fastapi", "uvicorn[standard] (>=0.15.0)"]
 
 [[package]]
+name = "fastui"
+version = "0.7.0"
+description = "Build better UIs faster."
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "fastui-0.7.0-py3-none-any.whl", hash = "sha256:3e903828b26ecaef2da46e30bbe1123db20cf4a1c32d6c082665f52de9f639d2"},
+    {file = "fastui-0.7.0.tar.gz", hash = "sha256:08ec1b8437653fc37caaf3dae46566a43dbda3f190c62c43f8f3d063261dd1e8"},
+]
+
+[package.dependencies]
+pydantic = {version = ">=2.5.2", extras = ["email"]}
+
+[package.extras]
+fastapi = ["fastapi (>=0.104)", "python-multipart (>=0.0.6)"]
+
+[[package]]
 name = "frozenlist"
 version = "1.4.1"
 description = "A list-like structure which implements collections.abc.MutableSequence"
@@ -1492,6 +1509,7 @@ files = [
 
 [package.dependencies]
 annotated-types = ">=0.4.0"
+email-validator = {version = ">=2.0.0", optional = true, markers = "extra == \"email\""}
 pydantic-core = "2.20.1"
 typing-extensions = [
     {version = ">=4.12.2", markers = "python_version >= \"3.13\""},
@@ -2546,4 +2564,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "0738d9e9a17703cd0b75f0eb7067314a3a2d9b2f2e89989ac9156a889044cf19"
+content-hash = "fd728f03c4085db285a8baabd7598c41dccd01791ffc168fb36b7d5ae655a7f8"

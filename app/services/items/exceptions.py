@@ -33,3 +33,9 @@ class PhotoNotFoundException(Exception):
         super().__init__(
             "Фото не найдено"
         )
+
+
+class ItemException(BaseException):
+    def __init__(self, message: str):
+        super().__init__(message)
+        

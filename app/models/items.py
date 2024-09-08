@@ -18,7 +18,6 @@ class ItemPriceDTO(BaseModel):
     price: float | None = None
     from_price: float | None = None
     to_price: float | None = None
-    range: bool = False
     currency: str = "RUB"
 
 
@@ -38,7 +37,7 @@ class ItemShortDTO(BaseModel):
     id: int
     title: str
     type: str
-    price: float | None = None
+    fix_price: float | None = None
     from_price: float | None = None
     to_price: float | None = None
     currency: str = "RUB"
@@ -47,6 +46,8 @@ class ItemShortDTO(BaseModel):
     city: str | None = None
     address: str | None = None
     date_created: str | None = None
+    rating: float
+    reviews_quantity: int
 
 
 class Seller(BaseModel):

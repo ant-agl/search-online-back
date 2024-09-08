@@ -345,7 +345,8 @@ class Items(Base):
     )
 
     category: Mapped["ItemsCategory"] = relationship(
-        back_populates="item"
+        back_populates="item",
+        lazy="joined"
     )
 
     price: Mapped["ItemsPrice"] = relationship(
@@ -359,7 +360,8 @@ class Items(Base):
     )
 
     production: Mapped["ProductionTime"] = relationship(
-        back_populates="item"
+        back_populates="item",
+        lazy="joined"
     )
 
     location: Mapped["ItemsLocations"] = relationship(
@@ -368,7 +370,8 @@ class Items(Base):
     )
 
     reviews: Mapped[list["ItemsReviews"]] = relationship(
-        back_populates="item"
+        back_populates="item",
+        lazy="joined"
     )
 
     clicks_quantity: Mapped[list["ItemsClicks"]] = relationship(
@@ -378,6 +381,16 @@ class Items(Base):
     offers: Mapped[list["Offers"]] = relationship(
         back_populates="item"
     )
+
+    @property
+    def rating(self):
+        if len(self.reviews) == 0:
+            return 0
+        return sum([r.stars for r in self.reviews]) / len(self.reviews)
+
+    @property
+    def reviews_quantity(self):
+        return len(self.reviews)
 
 
 class ItemsCategory(Base):
@@ -401,8 +414,7 @@ class ItemsPrice(Base):
 
     id: Mapped[INT_PK]
     item_id: Mapped[int] = mapped_column(ForeignKey("items.id", ondelete="CASCADE"))
-    price: Mapped[float] = mapped_column(nullable=True)
-    range: Mapped[bool] = mapped_column(nullable=True)
+    fix_price: Mapped[float] = mapped_column(nullable=True)
     from_price: Mapped[float] = mapped_column(nullable=True)
     to_price: Mapped[float] = mapped_column(nullable=True)
     currency: Mapped[str] = mapped_column(String(5), default="RUB")
