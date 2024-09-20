@@ -101,9 +101,6 @@ class CommonService(BaseService):
         )
 
     async def create_tech_support(self, body: TechnicalRequest):
-        check_user = await self._repository.check_user(body.contact_email)
-        if check_user is None:
-            raise UserNotFoundException()
         await self._repository.register_tech_request(body)
 
     async def get_categories_what_depend_on(self, category_ids: list[int]):

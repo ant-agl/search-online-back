@@ -1,14 +1,10 @@
 import datetime
-import enum
-import uuid
 from typing import Annotated
 
 from babel.dates import format_date
-from sqlalchemy import BigInteger, TIMESTAMP, ForeignKey, String, UniqueConstraint, event
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import DeclarativeBase, mapped_column, Mapped, relationship, with_loader_criteria
+from sqlalchemy import BigInteger, TIMESTAMP, ForeignKey, String, UniqueConstraint
+from sqlalchemy.orm import DeclarativeBase, mapped_column, Mapped, relationship
 
-from app.api.common.responses import Category
 from app.models.request import RequestDTO, RequestPhotos, RequestCategory
 from app.models.users import UserShortDTO
 from app.repository.session import engine
