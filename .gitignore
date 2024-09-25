@@ -4,3 +4,5 @@ gitlab-ee-compose.yaml
 gitlub-ee-compose.yaml
 __pycache__/
 .fleet
+
+docker-compose.yaml
