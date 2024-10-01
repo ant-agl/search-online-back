@@ -1,12 +1,14 @@
 import logging
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, BackgroundTasks
+from pydantic import create_model, Field, BaseModel
 from starlette.responses import JSONResponse
 
 from app.api.dependencies import get_offers_service, get_user_service, get_items_service
 from app.api.exceptions import InternalServerError, BadRequestApiException, NotFoundApiException, ForbiddenApiException
 from app.api.v1.offers.requests import CreateOffer, UpdateOfferStatus, UpdateOfferDetails
-from app.api.v1.offers.responses import GetOffersResponse
+from app.api.v1.offers.responses import GetOffersResponse, GetOfferResponse
 from app.models.auth import TokenPayload
 from app.services.auth.service import Authenticator
 from app.services.items.service import ItemsService
@@ -16,7 +18,7 @@ from app.services.offers.exceptions import WrongOfferSenderException, ItemHasAno
 from app.services.offers.service import OffersService
 from app.services.users.exceptions import UserNotFoundException
 from app.services.users.service import UserService
-from app.utils.types import OffersTypes
+from app.utils.types import OffersTypes, success_response
 
 router = APIRouter(
     prefix="/offers",
@@ -35,7 +37,14 @@ async def create_offer(
         service: OffersService = Depends(get_offers_service),
         users_service: UserService = Depends(get_user_service),
         items_service: ItemsService = Depends(get_items_service),
-):
+) -> Annotated[
+    JSONResponse, create_model(
+        "SuccessOfferCreate",
+        success=Annotated[bool, Field(...)],
+        offer_id=Annotated[int, Field(...)],
+        __base__=BaseModel
+    )
+]:
     try:
         offer_id = await service.create(
             user, body, users_service,
@@ -68,7 +77,7 @@ async def get_offer(
         offer_id: int,
         user: TokenPayload = Depends(Authenticator.get_current_user),
         service: OffersService = Depends(get_offers_service)
-):
+) -> GetOfferResponse:
     try:
         offer = await service.get_offer_by_id(offer_id, user.id)
         return offer
@@ -91,7 +100,7 @@ async def get_all_offers(
         page_limit: int = Query(50, ge=1, le=100),
         user: TokenPayload = Depends(Authenticator.get_current_user),
         service: OffersService = Depends(get_offers_service),
-):
+) -> Annotated[dict, GetOffersResponse]:
     try:
         result, meta = await service.get_offers(
             user.id, target.value,
@@ -139,7 +148,7 @@ async def update_offer(
         bg_tasks: BackgroundTasks,
         user: TokenPayload = Depends(Authenticator.get_current_user),
         service: OffersService = Depends(get_offers_service)
-):
+) -> success_response:
     try:
         receiver = await service.update_offer_details(
             offer_id, user.id, body
@@ -165,7 +174,7 @@ async def update_offer_status(
         bg_tasks: BackgroundTasks,
         user: TokenPayload = Depends(Authenticator.get_current_user),
         service: OffersService = Depends(get_offers_service)
-):
+) -> success_response:
     try:
         receiver = await service.update_offer_status(offer_id, user.id, body)
         # bg_tasks.add_task() TODO: Добавить оповещалку

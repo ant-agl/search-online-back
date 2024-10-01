@@ -1,11 +1,12 @@
 import logging
-from typing import Union
+from typing import Union, Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
+from pydantic import create_model, BaseModel, Field
 
 from app.api.common.requests import CreateCategory, TechnicalRequest
-from app.api.common.responses import GetCities, GetCategoryTree
+from app.api.common.responses import GetCities, GetCategoryTree, FAQSResponse
 from app.api.dependencies import get_common_service
 from app.api.exceptions import InternalServerError, ErrorResponse, ForbiddenApiException, BadRequestApiException, \
     NotFoundApiException
@@ -14,7 +15,7 @@ from app.services.auth.service import Authenticator
 from app.services.common.exceptions import ExceedingMaxDepth
 from app.services.common.service import CommonService
 from app.services.users.exceptions import UserNotFoundException
-from app.utils.types import ItemType
+from app.utils.types import ItemType, success_response, status_response
 
 router = APIRouter(
     prefix="/common",
@@ -95,7 +96,7 @@ async def get_category_status(
         category_id: int,
         _: TokenPayload = Depends(Authenticator.get_current_user),
         service: CommonService = Depends(get_common_service),
-):
+) -> status_response:
     try:
         result = await service.get_new_category_status(category_id)
         return JSONResponse(
@@ -111,7 +112,7 @@ async def get_category_status(
 @router.get("/faqs", status_code=200, summary="FAQs")
 async def get_faqs(
         service: CommonService = Depends(get_common_service),
-):
+) -> FAQSResponse:
     try:
         return await service.get_faqs()
     except Exception as e:
@@ -126,14 +127,12 @@ async def get_faqs(
 async def help_request(
         body: TechnicalRequest,
         service: CommonService = Depends(get_common_service),
-):
+) -> success_response:
     try:
         result = await service.create_tech_support(body)
-        return JSONResponse(
-            content={
+        return {
                 "success": True,
-            }, status_code=201
-        )
+            }
     except UserNotFoundException as e:
         raise NotFoundApiException(str(e))
     except Exception as e:

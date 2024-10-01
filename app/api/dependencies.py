@@ -3,6 +3,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from sqlalchemy.ext.asyncio import AsyncSession
 from redis.asyncio import Redis, ConnectionPool
 
+from app.repository.admin.repository import AdminRepository
 from app.repository.common.repository import CommonRepository
 from app.repository.items.repository import ItemsRepository
 from app.repository.messages.repository import MessagesRepository
@@ -12,6 +13,7 @@ from app.repository.offers.repository import OffersRepository
 from app.repository.requests.repository import RequestsRepository
 from app.repository.session import get_session
 from app.repository.users.repository import UsersRepository
+from app.services.admin.service import AdminService
 from app.services.auth.service import Authenticator
 from app.services.cloud_service import CloudService
 from app.services.common.service import CommonService
@@ -87,4 +89,10 @@ async def get_messages_service(
     return MessagesService(
         mongo_repository=MongoRepository(mongo_session),
         postgres_repository=MessagesRepository(postgres_session)
+    )
+
+
+async def get_admin_service(session: AsyncSession = Depends(get_session)):
+    return AdminService(
+        AdminRepository(session)
     )

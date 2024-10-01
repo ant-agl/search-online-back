@@ -1,8 +1,9 @@
 import asyncio
 import logging
-from typing import Union
+from typing import Union, Annotated
 
 from fastapi import APIRouter, Depends, UploadFile, BackgroundTasks, Query
+from pydantic import create_model, Field, BaseModel
 from starlette.responses import JSONResponse
 
 from app.api.dependencies import get_items_service, get_common_service, get_cloud_service, get_offers_service, \
@@ -22,7 +23,7 @@ from app.services.items.exceptions import MinPriceOverMaxPriceException, Categor
 from app.services.items.service import ItemsService
 from app.services.offers.service import OffersService
 from app.services.users.service import UserService
-from app.utils.types import ItemType
+from app.utils.types import ItemType, success_response
 
 router = APIRouter(
     prefix="/items"
@@ -149,7 +150,13 @@ async def create_new_item(
         user: TokenPayload = Depends(Authenticator.get_current_user),
         service: ItemsService = Depends(get_items_service),
         common_service: CommonService = Depends(get_common_service)
-):
+) -> Annotated[
+    dict, create_model(
+        "CreateItemResponse",
+        id=Annotated[int, Field(...)],
+        status=Annotated[str, Field(...)], __base__=BaseModel
+    )
+]:
     if not user.full_filled:
         raise UnprocessableApiException(
             "Для добавления товара или услуги профиль должен быть заполнен"
@@ -160,9 +167,7 @@ async def create_new_item(
         )
     try:
         result = await service.create_item(user.id, body, common_service)
-        return JSONResponse(
-            content=result,
-        )
+        return result
     except MinPriceOverMaxPriceException as e:
         raise UnprocessableApiException(str(e))
     except (CategoryNotFoundException, CityNotFoundException) as e:
@@ -284,7 +289,7 @@ async def add_item_photo(
         user: TokenPayload = Depends(Authenticator.get_current_user),
         service: ItemsService = Depends(get_items_service),
         cloud_service: CloudService = Depends(get_cloud_service)
-):
+) -> success_response:
     if not user.full_filled:
         raise UnprocessableApiException(
             "Для добавления фото профиль должен быть заполнен"
@@ -391,7 +396,7 @@ async def create_item_review(
         body: PostItemReview,
         user: TokenPayload = Depends(Authenticator.get_current_user),
         service: ItemsService = Depends(get_items_service),
-):
+) -> success_response:
     try:
         result = await service.add_review(user.id, item_id, body)
         return JSONResponse(
@@ -417,7 +422,7 @@ async def create_item_review(
         page: int = Query(1, ge=1),
         page_limit: int = Query(50, ge=1, le=100),
         by_stars: int = None,
-        user: TokenPayload = Depends(Authenticator.get_current_user),
+        _: TokenPayload = Depends(Authenticator.get_current_user),
         service: ItemsService = Depends(get_items_service),
 ):
     try:

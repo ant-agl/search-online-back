@@ -2,9 +2,11 @@ import datetime
 from typing import Annotated
 
 from babel.dates import format_date
+from pydantic import create_model, Field, BaseModel
 from sqlalchemy import BigInteger, TIMESTAMP, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, mapped_column, Mapped, relationship
 
+from app.models.common import CategoryDTO
 from app.models.request import RequestDTO, RequestPhotos, RequestCategory
 from app.models.users import UserShortDTO
 from app.repository.session import engine
@@ -52,6 +54,18 @@ class Regions(Base):
     cities: Mapped[list["Cities"]] = relationship(
         back_populates="regions",
     )
+
+    @property
+    def model(self):
+        return create_model(
+            "Region",
+            id=Annotated[int, Field(...)],
+            name=Annotated[str, Field(...)],
+            is_active=Annotated[bool, Field(...)],
+            __base__=BaseModel
+        ).model_validate(
+            self, from_attributes=True
+        ).model_dump(mode="json")
 
 
 class Cities(Base):
@@ -161,6 +175,9 @@ class Users(Base):
     )
 
     main_category: Mapped["SellersCategories"] = relationship(
+        back_populates="user",
+    )
+    favourites: Mapped["UsersFavourites"] = relationship(
         back_populates="user",
     )
 
@@ -306,6 +323,17 @@ class Categories(Base):
         back_populates="category"
     )
 
+    @property
+    def model(self):
+        return CategoryDTO(
+            id=self.id,
+            type=self.type,
+            value=self.value,
+            on_moderating=self.on_moderating,
+            depend_on=self.depend_on,
+            disabled=self.disabled,
+        )
+
 
 class SellersCategories(Base):
     __tablename__ = 'sellers_categories'
@@ -376,6 +404,10 @@ class Items(Base):
 
     offers: Mapped[list["Offers"]] = relationship(
         back_populates="item"
+    )
+
+    favourites: Mapped["UsersFavourites"] = relationship(
+        back_populates="item",
     )
 
     @property
@@ -815,7 +847,7 @@ class FAQs(Base):
     id: Mapped[INT_PK]
     question: Mapped[str] = mapped_column(String(255))
     answer: Mapped[str] = mapped_column(String(255))
-
+    
 
 class UserReports(Base):
     __tablename__ = "users_reports"
@@ -843,6 +875,37 @@ class TechnicalSupports(Base):
     is_resolved: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[CREATED_AT]
     updated_at: Mapped[UPDATED_AT]
+
+    @property
+    def model(self):
+        return create_model(
+            "TechSupport",
+            id=Annotated[int, Field(...)],
+            contact_email=Annotated[str, Field(...)],
+            text=Annotated[str, Field(...)],
+            is_resolved=Annotated[bool, Field(...)],
+            created_at=Annotated[datetime.datetime, Field(...)],
+            updated_at=Annotated[datetime.datetime, Field(...)],
+            __base__=BaseModel
+        ).model_validate(
+            self, from_attributes=True
+        ).model_dump(mode="json")
+
+
+class UsersFavourites(Base):
+    __tablename__ = 'users_favourites'
+
+    id: Mapped[INT_PK]
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    item_id: Mapped[int] = mapped_column(ForeignKey("items.id", ondelete="CASCADE"))
+    created_at: Mapped[CREATED_AT]
+
+    user: Mapped[Users] = relationship(
+        back_populates="favourites",
+    )
+    item: Mapped[Items] = relationship(
+        back_populates="favourites",
+    )
 
 
 async def create_tables():

@@ -1,10 +1,14 @@
 import asyncio
+import datetime
 import math
 import pprint
+import random
 import uuid
 
+from redis import Redis
 from sqlalchemy.exc import IntegrityError
 
+from app.api.auth.requests import NewPasswordSet
 from app.api.v1.users.requests import RegistryUserRequest, FullRegistryUserRequest, UpdateUserRequest, Contacts, \
     UpdateContactRequest, CreateSellerReviewRequest, CompanyData
 from app.api.v1.users.responses import UserResponse, UserInfo, CityInfo, UserAvatar, ReviewsResponse, Meta
@@ -17,7 +21,8 @@ from app.services.cloud_service import CloudService
 from app.services.items.service import ItemsService
 from app.services.service import BaseService
 from app.services.users.exceptions import UserNotFoundException, AssertionUserReviewException, ReviewException, \
-    ReviewNotFoundException, AlreadySellerException, SelfReportException
+    ReviewNotFoundException, AlreadySellerException, SelfReportException, UserServiceException
+from app.utils.email import EmailSender
 from app.utils.types import TypesOfUser
 
 
@@ -50,12 +55,7 @@ class UserService(BaseService):
     async def fill_profile(self, user_id: int, body: FullRegistryUserRequest):
         company_data = None
         if body.type.value == "seller":
-            company_data = CompanyDataDTO(
-                legal_format=body.company_data.legal_format,
-                company_name=body.company_data.company_name,
-                address=body.company_data.address,
-                description=body.company_data.description,
-            )
+            company_data = CompanyDataDTO.model_validate(body.company_data, from_attributes=True)
 
         profile_data = UserFillingDTO(
             city_id=body.city_id,
@@ -154,6 +154,7 @@ class UserService(BaseService):
             self._repository.save_avatar_link(user_id, link),
             cloud.save_file(photo, key)
         ])
+        return link
 
     async def get_user_profile(self, user_id: int, types: list[str]):
         extend = False
@@ -344,6 +345,26 @@ class UserService(BaseService):
 
     async def get_user_city_id(self, user_id: int):
         return await self._repository.get_city_id(user_id)
+
+    async def reset_password_request(self, email: str, redis: Redis):
+        is_exist = await self._repository.check_user_exist(email)
+        if is_exist:
+            verification_code = str(random.randint(10000, 99999))
+            await redis.set(verification_code, email, ex=datetime.timedelta(minutes=10))
+            email_sender = EmailSender(email, verification_code)
+            await email_sender.send_repair_email()
+
+            return True
+
+        raise UserNotFoundException()
+
+    async def new_password_set(self, body: NewPasswordSet, redis: Redis):
+        requester_email = await redis.get(body.verification_code)
+        if requester_email is None:
+            raise UserServiceException("Код подтверждения истек")
+
+        await self._repository.update_user_pwd(requester_email.decode(), body.new_password)
+
 
 
 

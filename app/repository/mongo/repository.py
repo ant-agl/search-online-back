@@ -194,5 +194,27 @@ class MongoRepository:
         result = await self.db.messages.delete_many({"thread_id": thread_id})
         if result.deleted_count > 0:
             return True
+
+    async def update_user_avatat(self, user_id: int, new_avatar: str):
+        attempt_from_user_update = await self.db.messages.update_many(
+            {"from_user.id": user_id},
+            {
+                "$set": {
+                    "from_user.avatar": new_avatar
+                }
+            }
+        )
+        attempt_to_user_update = await self.db.messages.update_many(
+            {"to_user.id": user_id},
+            {
+                "$set": {
+                    "to_user.avatar": new_avatar
+                }
+            }
+        )
+
+        if attempt_from_user_update.modified_count > 0 and attempt_to_user_update.modified_count == 0:
+            return True
+
         
 

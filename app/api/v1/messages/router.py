@@ -1,7 +1,8 @@
 import logging
-from typing import Union
+from typing import Union, Annotated
 
 from fastapi import APIRouter, Depends, Query
+from pydantic import create_model, BaseModel, Field
 from starlette.responses import JSONResponse
 
 from app.api.dependencies import get_offers_service, get_messages_service
@@ -15,6 +16,7 @@ from app.services.messages.exceptions import ThreadAlreadyExists, ThreadExceptio
 from app.services.messages.service import MessagesService
 from app.services.offers.exceptions import OfferNotFoundException, OfferNotBelongYouException
 from app.services.offers.service import OffersService
+from app.utils.types import success_response
 
 router = APIRouter(
     prefix="/messages",
@@ -22,20 +24,26 @@ router = APIRouter(
 logger = logging.getLogger("MessagesRouter")
 
 
-@router.post("/thread", summary="Создать обсуждение")
+@router.post("/thread", summary="Создать обсуждение", status_code=201)
 async def create_thread(
         offer_id: int,
         user: TokenPayload = Depends(Authenticator.get_current_user),
         service: MessagesService = Depends(get_messages_service),
         offer_service: OffersService = Depends(get_offers_service)
-):
+) -> Annotated[
+    dict, create_model(
+        "SuccessThreadCreate",
+        thread_id=Annotated[int, Field(...)],
+        __base__=BaseModel
+    )
+]:
     try:
         thread_id = await service.create_thread(
             user_id=user.id,
             offer_id=offer_id,
             offer_service=offer_service
         )
-        return JSONResponse(content={"thread_id": thread_id}, status_code=201)
+        return {"thread_id": thread_id}
     except OfferNotFoundException as e:
         raise NotFoundApiException(str(e))
     except (OfferNotBelongYouException, ThreadAlreadyExists) as e:
@@ -74,14 +82,18 @@ async def send_message(
         body: NewMessageRequest,
         user: TokenPayload = Depends(Authenticator.get_current_user),
         service: MessagesService = Depends(get_messages_service), 
-):
+) -> Annotated[
+    dict, create_model(
+        "SuccessMessageCreate",
+        message_id=Annotated[str, Field(...)],
+        __base__=BaseModel
+    )
+]:
     try:
         message_id = await service.send_message(thread_id, user.id, body.content)
-        return JSONResponse(
-            content={
+        return {
                 "message_id": message_id
-            }, status_code=201
-        )
+            }
     except ThreadException as e:
         raise BadRequestApiException(str(e))
     except ThreadNotFoundException as e:
@@ -101,7 +113,7 @@ async def get_messages(
         limit: int = Query(default=10),
         user: TokenPayload = Depends(Authenticator.get_current_user),
         service: MessagesService = Depends(get_messages_service), 
-):
+) -> MessagesResponse:
     try:
         result, meta = await service.get_messages(
             thread_id, user.id, offset, limit
@@ -129,7 +141,7 @@ async def update_message(
         body: NewMessageRequest,
         user: TokenPayload = Depends(Authenticator.get_current_user),
         service: MessagesService = Depends(get_messages_service),
-):
+) -> success_response:
     try:
         result = await service.update_or_delete_message(
             thread_id, message_id, user.id, body.content
@@ -157,7 +169,7 @@ async def delete_message(
         message_id: str,
         user: TokenPayload = Depends(Authenticator.get_current_user),
         service: MessagesService = Depends(get_messages_service),
-):
+) -> success_response:
     try:
         result = await service.update_or_delete_message(
             thread_id, message_id, user.id, content=None,
@@ -186,7 +198,7 @@ async def mark_as_read(
         body: MarkAsReadRequest,
         user: TokenPayload = Depends(Authenticator.get_current_user),
         service: MessagesService = Depends(get_messages_service),
-):
+) -> success_response:
     try:
         result = await service.mark_as_read(
             thread_id, body.ids, user.id
@@ -212,7 +224,13 @@ async def mark_as_read(
 async def get_unread_total(
         user: TokenPayload = Depends(Authenticator.get_current_user),
         service: MessagesService = Depends(get_messages_service),
-):
+) -> Annotated[
+    JSONResponse, create_model(
+        "UnreadTotal",
+        count=Annotated[int, Field(...)],
+        __base__=BaseModel
+    )
+]:
     try:
         result = await service.unread_message_quantity(user.id)
         return JSONResponse(

@@ -207,5 +207,7 @@ class MessagesService:
 
         return result
 
+    async def update_user_avatar(self, user_id: int, avatar_url: str ):
+        await self.__mongo_repository.update_user_avatat(user_id, avatar_url)
 
 

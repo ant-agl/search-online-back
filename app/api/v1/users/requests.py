@@ -55,7 +55,10 @@ class CompanyData(BaseModel):
             return self
 
         if err != "":
+            print(err)
             raise UnprocessableApiException(f"Не заполнены обязательные поля: \n {err}")
+
+        return self
 
 
 class FullRegistryUserRequest(BaseModel):
@@ -64,6 +67,10 @@ class FullRegistryUserRequest(BaseModel):
     contacts: list[Contacts]
     main_category: list[int] | None = None
     company_data: CompanyData | None = None
+
+    # @model_validator(mode="before")
+    # def validate_company(self):
+    #     print(self)
 
     @model_validator(mode="after")
     def validate_field_type(self):

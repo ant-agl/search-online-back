@@ -440,4 +440,28 @@ class UsersRepository(BaseRepository):
         result = result.scalar_one_or_none()
         return result
 
+    async def check_user_exist(self, email: str):
+        statement = select(
+            UsersCredentials.user_id
+        ).filter_by(
+            email=email
+        )
+        result = await self.session.execute(statement)
+        result = result.scalar_one_or_none()
+        if result is None:
+            return False
+        return True
+
+    async def update_user_pwd(self, email: str, new_password: str):
+        statement = update(
+            UsersCredentials
+        ).filter_by(
+            email=email
+        ).values(
+            password=new_password
+        )
+        await self.session.execute(statement)
+        await self.session.commit()
+
+
 

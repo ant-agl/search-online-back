@@ -20,7 +20,7 @@ from app.settings import settings
 async def lifespan(_: FastAPI):
     settings.setup_architecture()
     settings.setup_logging()
-    await create_tables()
+    # await create_tables()
     yield
 
 

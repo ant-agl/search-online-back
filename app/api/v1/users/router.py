@@ -1,15 +1,16 @@
 import logging
-from typing import Union, Literal
+from typing import Union, Literal, Annotated
 
-from fastapi import APIRouter, Depends, UploadFile, Query
+from fastapi import APIRouter, Depends, UploadFile, Query, BackgroundTasks
 from fastapi.responses import JSONResponse
+from pydantic import create_model, BaseModel, Field
 from redis.asyncio import Redis
 
 from app.api.dependencies import get_auth_service, AuthTools, get_user_service, get_redis, get_common_service, \
-    get_cloud_service, get_items_service
+    get_cloud_service, get_items_service, get_messages_service
 from app.api.exceptions import BaseApiException, BadRequestApiException, ErrorResponse, InternalServerError, \
     NotFoundApiException
-from app.api.v1.users.responses import RegistryUserResponse
+from app.api.v1.users.responses import RegistryUserResponse, ReviewsResponse, UserResponse
 from app.api.v1.users.requests import RegistryUserRequest, FullRegistryUserRequest, UpdateUserRequest, Contacts, \
     UpdateContactRequest, CompanyData, CreateSellerReviewRequest, ReportRequest
 from app.api.v1.users.responses import UserContacts
@@ -20,10 +21,11 @@ from app.services.cloud_service import CloudService
 from app.services.common.exceptions import CityNotActiveException, CityNotFoundException
 from app.services.common.service import CommonService
 from app.services.items.service import ItemsService
+from app.services.messages.service import MessagesService
 from app.services.users.exceptions import ReviewException, AssertionUserReviewException, UserNotFoundException, \
     ReviewNotFoundException, AlreadySellerException, SelfReportException
 from app.services.users.service import UserService
-from app.utils.types import ReviewTypes, ReviewTarget
+from app.utils.types import ReviewTypes, ReviewTarget, success_response
 
 router = APIRouter(
     prefix="/users",
@@ -70,7 +72,7 @@ async def fill_profile(
         user: TokenPayload = Depends(Authenticator.get_current_user),
         service: UserService = Depends(get_user_service),
         common: CommonService = Depends(get_common_service)
-):
+) -> success_response:
     if user.full_filled:
         raise BadRequestApiException(
             "Профиль для данного пользователя уже заполнен"
@@ -85,11 +87,9 @@ async def fill_profile(
     try:
         user_id = user.id
         result = await service.fill_profile(user_id, body)
-        return JSONResponse(
-            content={
+        return {
                 "success": result
-            }, status_code=201
-        )
+            }
     except UNFException as e:
         raise NotFoundApiException(str(e))
     except Exception as e:
@@ -126,7 +126,7 @@ async def update_user_profile(
 async def get_user_profile(
         user: TokenPayload = Depends(Authenticator.get_current_user),
         service: UserService = Depends(get_user_service)
-):
+) -> UserResponse:
     user_id = user.id
     try:
         user = await service.get_user_profile(user_id, user.types)
@@ -159,13 +159,19 @@ async def delete_customer(
 )
 async def update_avatar(
         photo: UploadFile,
+        bg_tasks: BackgroundTasks,
         user: TokenPayload = Depends(Authenticator.get_current_user),
         service: UserService = Depends(get_user_service),
-        cloud: CloudService = Depends(get_cloud_service)
+        cloud: CloudService = Depends(get_cloud_service),
+        msg_service: MessagesService = Depends(get_messages_service),
 ):
     user_id = user.id
     try:
-        await service.update_avatar(user_id, await photo.read(), cloud)
+        link = await service.update_avatar(user_id, await photo.read(), cloud)
+        bg_tasks.add_task(
+            msg_service.update_user_avatar,
+            user_id, link
+        )
     except UNFException as e:
         raise NotFoundApiException(str(e))
     except Exception as e:
@@ -180,7 +186,7 @@ async def update_avatar(
 async def get_contacts(
         user: TokenPayload = Depends(Authenticator.get_current_user),
         service: UserService = Depends(get_user_service)
-):
+) -> UserContacts:
     user_id = user.id
     try:
         contact = await service.get_contacts(user_id)
@@ -202,15 +208,13 @@ async def add_contact(
         body: Contacts,
         user: TokenPayload = Depends(Authenticator.get_current_user),
         service: UserService = Depends(get_user_service)
-):
+) -> success_response:
     user_id = user.id
     try:
         result = await service.add_contact(user_id, body)
-        return JSONResponse(
-            content={
+        return {
                 "success": result
-            }, status_code=201
-        )
+            }
     except UNFException as e:
         raise NotFoundApiException(str(e))
     except Exception as e:
@@ -267,14 +271,12 @@ async def become_seller(
         body: CompanyData,
         user: TokenPayload = Depends(Authenticator.get_current_user),
         service: UserService = Depends(get_user_service)
-):
+) -> success_response:
     try:
         result = await service.become_seller(user.id, body)
-        return JSONResponse(
-            content={
+        return {
                 "success": result
-            }, status_code=201
-        )
+            }
     except UserNotFoundException as e:
         raise NotFoundApiException(str(e))
     except AlreadySellerException as e:
@@ -285,21 +287,20 @@ async def become_seller(
 
 
 @router.post(
-    "/seller/{user_id}/reviews", summary="Оставить отзыв о продавце"
+    "/seller/{user_id}/reviews", summary="Оставить отзыв о продавце",
+    status_code=201
 )
 async def create_seller_review(
         user_id: int,
         body: CreateSellerReviewRequest,
         user: TokenPayload = Depends(Authenticator.get_current_user),
         service: UserService = Depends(get_user_service)
-):
+) -> success_response:
     try:
         result = await service.create_review(user.id, user_id, body)
-        return JSONResponse(
-            content={
+        return {
                 "success": result
-            }, status_code=201
-        )
+            }
     except (AssertionUserReviewException, ReviewException) as e:
         raise BadRequestApiException(str(e))
     except UserNotFoundException as e:
@@ -354,7 +355,7 @@ async def get_reviews(
         page_limit: int = Query(50, ge=1, le=100),
         user: TokenPayload = Depends(Authenticator.get_current_user),
         service: UserService = Depends(get_user_service)
-):
+) -> ReviewsResponse:
     try:
         reviews = await service.get_reviews_about_me(
             user, page, page_limit, by_stars
@@ -378,7 +379,7 @@ async def get_reviews(
         user: TokenPayload = Depends(Authenticator.get_current_user),
         items_service: ItemsService = Depends(get_items_service),
         service: UserService = Depends(get_user_service)
-):
+) -> ReviewsResponse:
     try:
         reviews = await service.get_reviews_from_me(
             user.id, target.value, page, page_limit,
@@ -419,14 +420,12 @@ async def report_to_user(
         reason: ReportRequest,
         user: TokenPayload = Depends(Authenticator.get_current_user),
         service: UserService = Depends(get_user_service)
-):
+) -> success_response:
     try:
         result = await service.add_report(user.id, user_id, reason.reason)
-        return JSONResponse(
-            content={
+        return {
                 "success": result
-            }, status_code=201
-        )
+            }
     except SelfReportException as e:
         raise BaseApiException(
             success=False,

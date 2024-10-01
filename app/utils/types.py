@@ -1,5 +1,8 @@
 import enum
-from typing import Final
+from typing import Final, Annotated
+
+from pydantic import create_model, BaseModel, Field
+from fastapi.responses import JSONResponse
 
 
 class TypesOfUser(enum.Enum):
@@ -66,3 +69,18 @@ STATUS_MAP: Final[dict[str, str]] = {
     "CANCELLED": "Отменен заказчиком",
     "COMPLETED": "Завершен",
 }
+
+success_response = Annotated[
+    dict, create_model(
+        "SuccessResponse",
+        success=Annotated[bool, Field(...)],
+        __base__=BaseModel
+    ), JSONResponse
+]
+status_response = Annotated[
+    dict, create_model(
+        "StatusResponse",
+        status=Annotated[ItemPublishStatus, Field()],
+        __base__=BaseModel
+    )
+]
