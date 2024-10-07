@@ -2,6 +2,7 @@ from app.api.admin.requests import AddFAQ
 from app.api.common.responses import Category
 from app.repository.admin.repository import AdminRepository
 from app.services.service import BaseService
+from app.utils.types import Meta
 
 
 class AdminService(BaseService):
@@ -129,7 +130,27 @@ class AdminService(BaseService):
             "success": True,
         }
 
-    async def get_items_on_moderating(self):
-        items = self._repository.items_on_moderating()
-        return items
+    async def get_items_on_moderating(self, page: int, limit: int):
+        offset = (page - 1) * limit
+
+        total = await self._repository.total_items_on_moderating()
+        items = await self._repository.items_on_moderating(offset, limit)
+
+        meta = Meta(
+            page=page,
+            total_items=total,
+            total_pages=(total + limit - 1) // limit,
+            items_per_page=limit,
+        )
+        return {
+            "items": items,
+            "meta": meta,
+        }
+
+    async def set_item_status(self, item_id: int, approve: bool):
+        status = "approved" if approve else "rejected"
+        await self._repository.set_publish_item_status(item_id, status)
+        return {
+            "success": True
+        }
 

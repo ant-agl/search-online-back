@@ -166,12 +166,6 @@ class ItemsService(BaseService):
         assert author_id == user_id
         await self._repository.delete_item(item_id)
 
-    async def get_items(self, ):
-        ...
-
-    async def get_item(self, item_id):
-        ...
-
     async def add_photo(
             self, user_id: int,
             item_id: int, index: int,

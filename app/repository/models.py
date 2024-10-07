@@ -6,7 +6,8 @@ from pydantic import create_model, Field, BaseModel
 from sqlalchemy import BigInteger, TIMESTAMP, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, mapped_column, Mapped, relationship
 
-from app.models.common import CategoryDTO
+from app.models.common import CategoryDTO, CategoryShortDTO
+from app.models.items import Seller, PhotosDTO, ItemFullDTO
 from app.models.request import RequestDTO, RequestPhotos, RequestCategory
 from app.models.users import UserShortDTO
 from app.repository.session import engine
@@ -421,8 +422,45 @@ class Items(Base):
         return len(self.reviews)
 
     @property
-    def dto(self):
-        return
+    def dto_full(self):
+        return ItemFullDTO(
+            id=self.id,
+            title=self.title,
+            type=self.format,
+            fix_price=self.price.fix_price,
+            from_price=self.price.from_price,
+            to_price=self.price.to_price,
+            currency=self.price.currency,
+            photos=[
+                PhotosDTO(
+                    id=photo.id,
+                    link=photo.link,
+                    index=photo.index
+                )
+                for photo in self.photos
+            ] if self.photos else [],
+            status=self.status.value,
+            city=self.location.city.name,
+            address=self.location.address,
+            date_created=format_date(self.created_at, format="d MMMM y", locale="ru"),
+            rating=self.rating,
+            self=self.reviews_quantity,
+            from_time=self.production.from_time if self.production else None,
+            to_time=self.production.to_time if self.production else None,
+            description=self.description,
+            category=CategoryShortDTO(
+                id=self.category.category.id,
+                type=self.category.category.type.value,
+                value=self.category.category.value
+            ),
+            seller=Seller(
+                id=self.user.id,
+                name=self.user.full_name,
+                rating=self.user.rating,
+                avatar=self.user.avatar.link if self.user.avatar is not None else None,
+            ),
+            clicks=len(self.clicks_quantity)
+        )
 
 
 class ItemsCategory(Base):

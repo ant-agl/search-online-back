@@ -66,10 +66,12 @@ async def enable_disable_category(
     status_code=200
 )
 async def on_moderating_items(
+        page: int = 1,
+        limit: int = 20,
         service: AdminService = Depends(get_admin_service)
 ):
     try:
-        return await service.get_items_on_moderating()
+        return await service.get_items_on_moderating(page, limit)
     except Exception as e:
         logger.exception(e)
         raise InternalServerError(str(e))
@@ -85,7 +87,7 @@ async def accept_reject_items(
         service: AdminService = Depends(get_admin_service)
 ) -> success_response:
     try:
-        ...
+        return await service.set_item_status(item_id, approve)
     except Exception as e:
         logger.exception(e)
         raise InternalServerError(str(e))

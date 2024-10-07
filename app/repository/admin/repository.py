@@ -1,7 +1,8 @@
 from lxml.parser import result
 from rich import region
-from sqlalchemy import select, update, delete
+from sqlalchemy import select, update, delete, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from app.repository.models import Categories, TechnicalSupports, Regions, FAQs, Users, Items
 from app.repository.repository import BaseRepository
@@ -140,22 +141,40 @@ class AdminRepository(BaseRepository):
         await self.session.execute(statement)
         await self.session.commit()
 
-    async def items_on_moderating(self):
+    async def items_on_moderating(self, offset: int, limit: int):
         statement = select(
             Items
         ).filter(
             Items.status.in_(["pending", "moderate"])
+        ).offset(offset).limit(limit).options(
+            joinedload(Items.price)
+        ).options(
+            joinedload(Items.photos)
+        ).options(
+            joinedload(Items.location)
+        ).options(
+            joinedload(Items.category)
+        ).options(
+            joinedload(Items.reviews)
+        ).options(
+            joinedload(Items.production)
+        ).options(
+            joinedload(Items.clicks_quantity)
+        ).options(
+            joinedload(Items.user)
         )
         result = await self.session.execute(statement)
         result = result.scalars().unique().all()
         if not result:
             return []
         return [
-            res.dto
+            res.dto_full
             for res in result
         ]
 
-    async def set_publish_item_status(self, item_id: int, status: str):
+    async def set_publish_item_status(
+            self, item_id: int, status: str
+    ):
         statement = update(
             Items
         ).filter_by(
@@ -166,3 +185,13 @@ class AdminRepository(BaseRepository):
         await self.session.execute(statement)
         await self.session.commit()
 
+    async def total_items_on_moderating(self):
+        statement = select(func.count(Items.id)).filter(
+            Items.status.in_(["pending", "moderate"])
+        )
+
+        result = await self.session.execute(statement)
+        result = result.scalar()
+        if not result:
+            return 0
+        return result

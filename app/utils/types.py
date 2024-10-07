@@ -84,3 +84,9 @@ status_response = Annotated[
         __base__=BaseModel
     )
 ]
+
+class Meta(BaseModel):
+    page: int
+    total_items: int
+    total_pages: int
+    items_per_page: int
