@@ -117,3 +117,19 @@ class AdminService(BaseService):
             "success": True,
         }
 
+    async def block_user(self, user_id: int):
+        await self._repository.block_user_by_id(user_id)
+        return {
+            "success": True,
+        }
+
+    async def unlock_user(self, user_id: int):
+        await self._repository.unlock_user_by_id(user_id)
+        return {
+            "success": True,
+        }
+
+    async def get_items_on_moderating(self):
+        items = self._repository.items_on_moderating()
+        return items
+

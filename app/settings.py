@@ -52,7 +52,7 @@ class Settings(BaseSettings):
 
     @property
     def mongo_dsn(self):
-        return f"mongodb://{self.MONGO_USER}:{self.MONGO_PWD}@localhost:27017/messenger_db?authSource=messenger_db"
+        return f"mongodb://{self.MONGO_USER}:{self.MONGO_PWD}@192.168.0.141:27017/messenger_db?authSource=messenger_db"
 
     @property
     def encode_key(self):

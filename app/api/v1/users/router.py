@@ -1,9 +1,7 @@
 import logging
-from typing import Union, Literal, Annotated
+from typing import Union, Literal
 
 from fastapi import APIRouter, Depends, UploadFile, Query, BackgroundTasks
-from fastapi.responses import JSONResponse
-from pydantic import create_model, BaseModel, Field
 from redis.asyncio import Redis
 
 from app.api.dependencies import get_auth_service, AuthTools, get_user_service, get_redis, get_common_service, \
@@ -25,7 +23,7 @@ from app.services.messages.service import MessagesService
 from app.services.users.exceptions import ReviewException, AssertionUserReviewException, UserNotFoundException, \
     ReviewNotFoundException, AlreadySellerException, SelfReportException
 from app.services.users.service import UserService
-from app.utils.types import ReviewTypes, ReviewTarget, success_response
+from app.utils.types import ReviewTarget, success_response
 
 router = APIRouter(
     prefix="/users",

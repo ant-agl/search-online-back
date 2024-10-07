@@ -1,6 +1,7 @@
 import logging
 
 from fastapi import APIRouter, Depends
+from watchfiles import awatch
 
 from app.api.admin.requests import AddFAQ
 from app.api.dependencies import get_admin_service
@@ -68,7 +69,7 @@ async def on_moderating_items(
         service: AdminService = Depends(get_admin_service)
 ):
     try:
-        ...
+        return await service.get_items_on_moderating()
     except Exception as e:
         logger.exception(e)
         raise InternalServerError(str(e))
@@ -96,7 +97,8 @@ async def block_user(
         service: AdminService = Depends(get_admin_service)
 ) -> success_response:
     try:
-        ...
+        result = await service.block_user(user_id)
+        return result
     except Exception as e:
         logger.exception(e)
         raise InternalServerError(str(e))
@@ -108,7 +110,8 @@ async def unlock_user(
         service: AdminService = Depends(get_admin_service)
 ) -> success_response:
     try:
-        ...
+        result = await service.unlock_user(user_id)
+        return result
     except Exception as e:
         logger.exception(e)
         raise InternalServerError(str(e))

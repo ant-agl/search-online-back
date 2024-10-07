@@ -420,6 +420,10 @@ class Items(Base):
     def reviews_quantity(self):
         return len(self.reviews)
 
+    @property
+    def dto(self):
+        return
+
 
 class ItemsCategory(Base):
     __tablename__ = "items_category"

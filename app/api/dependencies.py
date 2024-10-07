@@ -58,7 +58,7 @@ async def get_cloud_service():
 
 
 async def get_redis():
-    pool = ConnectionPool.from_url('redis://localhost:6379/0')
+    pool = ConnectionPool.from_url('redis://192.168.0.141:6379/0')
     client = Redis.from_pool(pool)
     yield client
     await client.close()

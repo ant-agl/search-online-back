@@ -1,8 +1,9 @@
+from lxml.parser import result
 from rich import region
 from sqlalchemy import select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.repository.models import Categories, TechnicalSupports, Regions, FAQs
+from app.repository.models import Categories, TechnicalSupports, Regions, FAQs, Users, Items
 from app.repository.repository import BaseRepository
 
 
@@ -116,3 +117,52 @@ class AdminRepository(BaseRepository):
         )
         self.session.add(new_faq)
         await self.session.commit()
+
+    async def block_user_by_id(self, user_id: int):
+        statement = update(
+            Users
+        ).filter_by(
+            id=user_id,
+        ).values(
+            is_blocked=True
+        )
+        await self.session.execute(statement)
+        await self.session.commit()
+
+    async def unlock_user_by_id(self, user_id: int):
+        statement = update(
+            Users
+        ).filter_by(
+            id=user_id,
+        ).values(
+            is_unlocked=False
+        )
+        await self.session.execute(statement)
+        await self.session.commit()
+
+    async def items_on_moderating(self):
+        statement = select(
+            Items
+        ).filter(
+            Items.status.in_(["pending", "moderate"])
+        )
+        result = await self.session.execute(statement)
+        result = result.scalars().unique().all()
+        if not result:
+            return []
+        return [
+            res.dto
+            for res in result
+        ]
+
+    async def set_publish_item_status(self, item_id: int, status: str):
+        statement = update(
+            Items
+        ).filter_by(
+            id=item_id,
+        ).values(
+            status=status
+        )
+        await self.session.execute(statement)
+        await self.session.commit()
+
