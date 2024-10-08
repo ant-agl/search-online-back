@@ -8,7 +8,7 @@ from starlette.responses import JSONResponse
 
 from app.api.dependencies import get_cloud_service, get_requests_service, get_common_service, get_user_service, \
     get_offers_service
-from app.api.exceptions import InternalServerError, BadRequestApiException, NotFoundApiException
+from app.api.exceptions import InternalServerError, BadRequestApiException, NotFoundApiException, ForbiddenApiException
 from app.api.v1.requests.requests import NewRequest
 from app.api.v1.requests.responses import RequestResponse, RequestsResponse
 from app.models.auth import TokenPayload
@@ -150,14 +150,39 @@ async def read_request(
         offer_service: OffersService = Depends(get_offers_service)
 ) -> Annotated[dict, RequestResponse]:
     try:
-        return await service.get_request_by_id(
-            request_id, user.id, offer_service,
-            page, limit
+        result = await service.get_request_by_id(
+            request_id
         )
+        return result
     except RequestException as e:
         raise BadRequestApiException(str(e))
     except RequestNotFound as e:
         raise NotFoundApiException(str(e))
+    except Exception as e:
+        logger.exception(e)
+        raise InternalServerError(str(e))
+
+
+@router.get(
+    "/{request_id}/offers", status_code=200,
+    summary="Посмотреть предложения по запросу"
+)
+async def read_offers(
+        request_id: int,
+        page: int = Query(1, ge=1),
+        limit: int = Query(5, ge=1),
+        user: TokenPayload = Depends(Authenticator.get_current_user),
+        offer_service: OffersService = Depends(get_offers_service),
+        service: RequestsService = Depends(get_requests_service),
+):
+    try:
+        return await service.get_request_offers(
+            request_id, user.id, page, limit, offer_service
+        )
+    except RequestNotFound as e:
+        raise NotFoundApiException(str(e))
+    except RequestException as e:
+        raise ForbiddenApiException(str(e))
     except Exception as e:
         logger.exception(e)
         raise InternalServerError(str(e))

@@ -417,4 +417,13 @@ class ItemsService(BaseService):
             "meta": meta
         }
 
+    async def get_item_owner(self, item_id: int, user_id: int):
+        owner_id = await self._repository.get_item_creator(item_id)
+        if owner_id is None:
+            raise ItemNotFoundException(item_id)
+        if owner_id != user_id:
+            raise ItemException(
+                "Посмотреть предложения может только владелец товара"
+            )
+
 

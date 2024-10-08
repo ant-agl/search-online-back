@@ -106,35 +106,40 @@ class RequestsService(BaseService):
         )
 
     async def get_request_by_id(
-            self, request_id: int, user_id: int, offers_service: OffersService,
-            page: int, limit: int
+            self, request_id: int
+    ):
+
+        request = await self._repository.get(request_id,)
+
+        return RequestResponse(
+            request=request,
+            offers=None,
+            meta=None
+        ).model_dump(exclude_none=True)
+
+    async def get_request_offers(
+            self, request_id: int, user_id: int, page: int,
+            limit: int, offer_service: OffersService
     ):
         creator_id = await self._repository.get_request_creator(request_id)
 
         if creator_id is None:
             raise RequestNotFound(request_id)
+        if creator_id != user_id:
+            raise RequestException("Просмотреть запросы может только его создатель")
 
-        is_creator = False
-        if creator_id == user_id:
-            is_creator = True
+        offers = await offer_service.get_offers_by_criteria(
+            {
+                "request_id": request_id,
+                "status": "PENDING"
+            }, page, limit, exclude=["request"]
+        )
+        offers, meta = offers
+        return {
+            "offers": offers,
+            "meta": meta
+        }
 
-        request = await self._repository.get(request_id,)
-        offers = None
-        meta = None
-        if is_creator:
-            offers = await offers_service.get_offers_by_criteria(
-                {
-                    "request_id": request_id,
-                    "status": "PENDING"
-                }, page, limit, exclude=["request"]
-            )
-            offers, meta = offers
-
-        return RequestResponse(
-            request=request,
-            offers=offers,
-            meta=meta.model_dump()
-        ).model_dump(exclude_none=True)
 
     async def delete(self, request_id: int, user_id: int):
         creator_id = await self._repository.get_request_creator(request_id)

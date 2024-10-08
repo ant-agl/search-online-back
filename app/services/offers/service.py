@@ -275,6 +275,3 @@ class OffersService(BaseService):
             raise OfferNotBelongYouException(offer_id)
 
         return participants
-
-
-

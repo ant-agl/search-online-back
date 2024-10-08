@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.api.v1.offers.responses import ShortOfferResponseModel
 from app.api.v1.offers.responses import Meta as OfferMetaModel
@@ -68,5 +68,5 @@ class GetItemResponse(ItemShortResponse):
 
 
 class GetItemResponseSeller(GetItemResponse):
-    offers: list[ShortOfferResponseModel | None]
-    meta: OfferMetaModel
+    offers: list[ShortOfferResponseModel | None] = Field(deprecated=True)
+    meta: OfferMetaModel | None = Field(deprecated=True)

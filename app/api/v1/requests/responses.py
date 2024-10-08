@@ -1,6 +1,6 @@
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.models.request import RequestDTO
 from app.models.users import UserShortDTO
@@ -21,5 +21,5 @@ class RequestsResponse(BaseModel):
 
 class RequestResponse(BaseModel):
     request: RequestDTO
-    offers: Any | None = None
-    meta: dict | None = None
+    offers: Any | None = Field(deprecated=True)
+    meta: dict | None = Field(deprecated=True)

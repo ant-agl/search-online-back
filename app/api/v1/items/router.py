@@ -85,19 +85,11 @@ async def get_items_my_page(
 )
 async def get_items_my_page(
         item_id: int,
-        offer_page: int = Query(1, ge=1),
-        offer_limit: int = Query(5, ge=1, le=10),
         user: TokenPayload = Depends(Authenticator.get_current_user),
         service: ItemsService = Depends(get_items_service),
-        offers_service: OffersService = Depends(get_offers_service),
 ):
     try:
         item = await service.get_item_by_id(item_id, user.id)
-        offers = await offers_service.get_offers_by_criteria(
-            {
-                "item_id": item_id, "status": "PENDING"
-            }, offer_page, offer_limit, exclude=["item"]
-        )
         return GetItemResponseSeller(
             id=item.id,
             title=item.title,
@@ -127,8 +119,8 @@ async def get_items_my_page(
             date_create=item.date_created,
             rating=item.rating,
             reviews_quantity=item.reviews_quantity,
-            offers=offers[0],
-            meta=offers[1]
+            offers=[],
+            meta=None
         ).model_dump(exclude_none=True)
     except ItemNotFoundException as e:
         raise NotFoundApiException(str(e))
@@ -136,6 +128,38 @@ async def get_items_my_page(
         raise ForbiddenApiException(
             "Товар/услуга вам не принадлежит"
         )
+    except Exception as e:
+        logger.exception(e)
+        raise InternalServerError(str(e))
+
+
+@router.get(
+    "/cards/my/{item_id}/offers", status_code=200,
+    summary="Получить запросы на товары"
+)
+async def get_offers_pages(
+        item_id: int,
+        offer_page: int = Query(1, ge=1),
+        offer_limit: int = Query(5, ge=1, le=10),
+        user: TokenPayload = Depends(Authenticator.get_current_user),
+        service: ItemsService = Depends(get_items_service),
+        offers_service: OffersService = Depends(get_offers_service),
+):
+    try:
+        await service.get_item_owner(item_id, user.id)
+        offers, meta = await offers_service.get_offers_by_criteria(
+            {
+                "item_id": item_id, "status": "PENDING"
+            }, offer_page, offer_limit, exclude=["item"]
+        )
+        return {
+            "offers": offers,
+            "meta": meta,
+        }
+    except ItemException as e:
+        raise ForbiddenApiException(str(e))
+    except ItemNotFoundException as e:
+        raise NotFoundApiException(str(e))
     except Exception as e:
         logger.exception(e)
         raise InternalServerError(str(e))
