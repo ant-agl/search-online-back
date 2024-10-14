@@ -19,6 +19,7 @@ class UserFillingDTO(BaseModel):
 class CompanyDataDTO(BaseModel):
     type: LegalFormat
     company_name: str | None = None
+    company_description: str | None = None
     legal_address: str | None = None
     inn: str | None = None
     ogrn: str | None = None

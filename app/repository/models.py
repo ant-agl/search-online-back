@@ -291,6 +291,7 @@ class LegalInfo(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     type: Mapped[LegalFormat]
     company_name: Mapped[str] = mapped_column(String(255), nullable=True)
+    company_description: Mapped[str] = mapped_column(String(255), nullable=True)
     legal_address: Mapped[str] = mapped_column(String(255), nullable=True)
     inn: Mapped[str] = mapped_column(String(255), nullable=True)
     ogrn: Mapped[str] = mapped_column(String(255), nullable=True)
